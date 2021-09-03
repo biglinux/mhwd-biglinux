@@ -1,0 +1,3 @@
+#!/bin/bash
+
+sed -i 's|pamac install --no-confirm ${PACKAGES}|${PACMAN} --needed -S${SYNC} ${PACKAGES}|g' /var/lib/mhwd/scripts/mhwd

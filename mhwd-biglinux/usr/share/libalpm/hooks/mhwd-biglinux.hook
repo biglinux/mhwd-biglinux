@@ -1,0 +1,11 @@
+[Trigger]
+Type = Package
+Operation = Install
+Operation = Upgrade
+Target = mhwd
+Target = mhwd-biglinux
+
+[Action]
+Description = Changes to mhwd support AUR packages and add more modules in db
+When = PostTransaction
+Exec = /usr/share/libalpm/scripts/mhwd-biglinux
