@@ -6,6 +6,6 @@ Target = mhwd
 Target = mhwd-biglinux
 
 [Action]
-Description = Changes to mhwd support AUR packages and add more modules in db
+Description = add linux-xanmod support
 When = PostTransaction
 Exec = /usr/share/libalpm/scripts/mhwd-biglinux
