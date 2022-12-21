@@ -1,3 +1,7 @@
 #!/bin/bash
 
-sed -i 's|${PACMAN} --needed -S${SYNC} ${PACKAGES}|pamac install --no-confirm ${PACKAGES}|g' /var/lib/mhwd/scripts/mhwd
+# Add xanmod in mhwd-kernel
+if ! grep -q linux-xanmod /usr/bin/mhwd-kernel; then
+    sed -i 's/\^linux\[0-9]\[0-9]?(\[0-9])\$/^linux[0-9][0-9]?([0-9])$|^linux-xanmod$/g' /var/lib/mhwd/scripts/mhwd
+    sed -i 's/\^linux\[0-9]\[0-9]?(\[0-9])\$/^linux[0-9][0-9]?([0-9])$|^linux-xanmod$/g' /usr/bin/mhwd-kernel
+fi

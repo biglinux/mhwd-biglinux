@@ -1,9 +1,0 @@
-[Trigger]
-Type = Package
-Operation = Remove
-Target = mhwd-biglinux
-
-[Action]
-Description = Changes to mhwd support AUR packages and add more modules in db
-When = PreTransaction
-Exec = /usr/share/libalpm/scripts/mhwd-biglinux-remove
