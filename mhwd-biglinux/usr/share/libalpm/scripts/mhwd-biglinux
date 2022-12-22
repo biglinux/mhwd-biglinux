@@ -2,8 +2,8 @@
 
 # Add xanmod in mhwd-kernel
 if ! grep -q linux-xanmod /usr/bin/mhwd-kernel; then
-    sed -i 's/\^linux\[0-9]\[0-9]?(\[0-9])\$/^linux[0-9][0-9]?([0-9])$|^linux-xanmod$/g' /var/lib/mhwd/scripts/mhwd
-    sed -i 's/\^linux\[0-9]\[0-9]?(\[0-9])\$/^linux[0-9][0-9]?([0-9])$|^linux-xanmod$/g' /usr/bin/mhwd-kernel
+    sed -i 's/\^linux\[0-9]\[0-9]?(\[0-9])\$/^linux[0-9][0-9]?([0-9])$|^linux-xanmod$|^linux-xanmod-lts$|^linux-xanmod-rt$/g' /var/lib/mhwd/scripts/mhwd
+    sed -i 's/\^linux\[0-9]\[0-9]?(\[0-9])\$/^linux[0-9][0-9]?([0-9])$|^linux-xanmod$|^linux-xanmod-lts$|^linux-xanmod-rt$/g' /usr/bin/mhwd-kernel
     
     sed -i 's/current="linux$major$minor"/if uname -r | grep xanmod >/dev/null; then current="linux-xanmod"; else current="linux$major$minor"; fi/g' /usr/bin/mhwd-kernel
 fi
