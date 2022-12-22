@@ -7,3 +7,4 @@ if ! grep -q linux-xanmod /usr/bin/mhwd-kernel; then
     
     sed -i 's/current="linux$major$minor"/if uname -r | grep xanmod.*lts >/dev/null; then current="linux-xanmod-lts"; elif grep xanmod >/dev/null; then current="linux-xanmod";  else current="linux$major$minor"; fi/g' /usr/bin/mhwd-kernel
 fi
+
