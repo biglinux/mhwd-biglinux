@@ -3,6 +3,7 @@ Type = Package
 Operation = Install
 Operation = Upgrade
 Target = mhwd
+Target = mhwd-db
 Target = mhwd-biglinux
 
 [Action]
