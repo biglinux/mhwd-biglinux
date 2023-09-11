@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+
+# If have optimus-manager installed
+if [ -e "/usr/bin/optimus-manager" ]; then
+	# Verify is is enabled
+	if ! systemctl -q is-enabled optimus-manager; then
+		systemctl enable --now optimus-manager
+	fi
+
+	# And verify if switcheroo is enabled
+	if ! systemctl -q is-enabled switcheroo-control; then
+		systemctl enable --now switcheroo-control
+	fi
+fi
