@@ -7,6 +7,6 @@ Target = mhwd-db
 Target = mhwd-biglinux
 
 [Action]
-Description = add linux-xanmod support
+Description = add linux-xanmod support and improves to hybrid GPU
 When = PostTransaction
 Exec = /usr/share/libalpm/scripts/mhwd-biglinux

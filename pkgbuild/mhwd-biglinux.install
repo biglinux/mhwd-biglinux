@@ -1,0 +1,7 @@
+post_install() {
+    systemctl enable nvidia-manager-verify
+}
+
+pre_remove() {
+    systemctl disable nvidia-manager-verify
+}
