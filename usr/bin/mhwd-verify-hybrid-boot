@@ -4,11 +4,12 @@
 if [ -e "/usr/bin/optimus-manager" ]; then
 	# Verify is is enabled
 	if ! systemctl -q is-enabled optimus-manager; then
-		systemctl enable --now optimus-manager
+		systemctl enable optimus-manager
 	fi
 
 	# And verify if switcheroo is enabled
 	if ! systemctl -q is-enabled switcheroo-control; then
+		systemctl start optimus-manager
 		systemctl enable --now switcheroo-control
 	fi
 fi
