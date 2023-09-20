@@ -1,0 +1,113 @@
+#!/bin/bash
+
+function turnOff {
+
+# Filter VGA Nvidia
+    nvidiaVGA=$(grep -Ei 'VGA.*NVIDIA' <(lspci))
+    # Filter only ID
+    nvidiaVGAID=${nvidiaVGA%% *}
+    
+    if [[ -z $nvidiaVGAID ]]; then
+        echo "Nvidia VGA not detected"
+        exit
+    fi
+
+    # Change separator to new line
+    IFS=$'\n'
+    appsOnNvidia=$(appsRunning)
+    if [[ -n $appsOnNvidia ]]; then
+        echo "Apps running on Nvidia, not possible stop driver:"
+        echo "$appsOnNvidia"
+        exit
+    fi
+
+    # Navigate to the /sys/bus/pci/drivers/pcieport directory
+    cd /sys/bus/pci/drivers/pcieport || exit 1
+
+    # Loop through each symbolic link starting with a number
+    for pciePortBus in [0-9]*; do
+        if [ -L "$pciePortBus" ]; then
+            # Navigate to the directory pointed to by the symbolic link
+
+            cd "$pciePortBus" || continue
+
+            # Loop through each subfolder starting with a number
+            for nvidiaID in $nvidiaVGAID; do
+                nvidiaBus="0000:$nvidiaID"
+            
+                if [ -d "$nvidiaBus" ]; then
+                    echo "parte 6 $nvidiaBus" >> /tmp/nvx-log3
+                    cat "$nvidiaBus/uevent" >> /tmp/nvx-log3
+                    
+                    # Check if the uevent file contains the string "DRIVER=nvidia"
+                    # if grep -q "DRIVER=nvidia" "$nvidiaBus/uevent"; then
+                        echo "Nvidia in $pciePortBus/$nvidiaBus/uevent"
+                        # removeModule # disabled
+                        # remove device
+                        echo 1 > "/sys/bus/pci/devices/$nvidiaBus/remove"
+                        echo auto > "/sys/bus/pci/devices/$pciePortBus/power/control"
+                        echo "Removed: $pciFolder"
+                    # fi
+                fi
+            done
+
+            # Navigate back to the /sys/bus/pci/drivers/pcieport directory
+            cd /sys/bus/pci/drivers/pcieport
+        fi
+    done
+}
+
+function turnOn {
+    echo 1 > /sys/bus/pci/rescan
+#     modprobe nvidia
+#     modprobe nvidia-modeset
+#     modprobe nvidia-uvm
+#     modprobe nvidia-drm modeset=0
+}
+
+function removeModule {
+    while true; do
+        if lsmod | grep -q 'nvidia'; then
+            echo 'Trying remove nvidia_drm nvidia_uvm nvidia_modeset and nvidia modules.'
+            if [[ -n $removeModuleLoop ]]; then
+                sleep 1
+            fi
+            # Remover módulos da Nvidia
+            rmmod nvidia_drm
+            rmmod nvidia_uvm
+            rmmod nvidia_modeset
+            rmmod nvidia
+            removeModuleLoop=true
+
+        else
+            echo 'Nvidia modules removed.'
+            break
+        fi
+    done
+}
+
+function appsRunning {
+    lsof /dev/nvidia* 2> /dev/null| awk 'NR>1 {print $1, $2, $3}' | sort -u | grep -v "^Xorg "
+}
+
+case $1 in
+  "off")
+    turnOff
+    ;;
+  "on")
+    turnOn
+    ;;
+  "apps")
+    appsRunning
+    ;;
+  "removeModules")
+    removeModule
+    ;;
+    *)
+    echo "Options to nvidia hybrid:
+    off     Remove pci in /sys/bus/pci/devices/ and change pcie to auto
+    on      Rescan pci in /sys/bus/pci/rescan
+    apps    Search apps using Nvidia in lsof /dev/nvidia*
+    removeModules Remove modules wirh rmmod "
+    ;;
+esac

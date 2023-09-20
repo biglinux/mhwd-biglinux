@@ -1,0 +1,10 @@
+[Unit]
+Description="Turn off gpu during boot."
+Before=display-manager.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/biglinux-dual-gpu-manager off
+
+[Install]
+WantedBy=multi-user.target

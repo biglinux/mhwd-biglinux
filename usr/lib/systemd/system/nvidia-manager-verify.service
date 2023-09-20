@@ -1,5 +1,5 @@
 [Unit]
-Description=Verify nvidia manager and switcheroo
+Description=Verify nvidia and switcheroo
 Before=multi-user.target display-manager.service alsa-restore.service alsa-state.service
 After=mhwd-live.service
 

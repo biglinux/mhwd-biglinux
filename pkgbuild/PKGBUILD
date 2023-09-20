@@ -3,11 +3,11 @@
 pkgname=mhwd-biglinux
 pkgver=$(date +%y.%m.%d)
 pkgrel=$(date +%H%M)
-pkgdesc="Add suport to linux-xanmod"
+pkgdesc="Add suport to linux-xanmod and better hybrid gpu"
 arch=('any')
 url="https://github.com/biglinux/$pkgname"
 license=('GPL3')
-depends=('mhwd')
+depends=('mhwd' 'envycontrol')
 provides=("$pkgname")
 # conflicts=('')
 source=("git+${url}.git")

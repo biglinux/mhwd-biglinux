@@ -1,0 +1,10 @@
+[Unit]
+Description="Turn on nvidia hybrid gpu during boot."
+After=multi-user.target
+
+[Service]
+Type=forking
+ExecStart=/usr/bin/biglinux-dual-gpu-manager on
+
+[Install]
+WantedBy=multi-user.target

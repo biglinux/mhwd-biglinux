@@ -42,9 +42,9 @@ hybrid-intel-nvidia-470xx-prime
 hybrid-intel-nvidia-prime"
 
 for folder in $Folders; do
-    # Add optimus-manager and switcheroo-control to files
-    if ! grep -q 'optimus-manager switcheroo-control' $folder/MHWDCONFIG; then
-        sed -i 's|^DEPENDS="|DEPENDS="optimus-manager switcheroo-control |g' $folder/MHWDCONFIG
+    # Add envycontrol and switcheroo-control to files
+    if ! grep -q 'envycontrol switcheroo-control' $folder/MHWDCONFIG; then
+        sed -i 's|^DEPENDS="|DEPENDS="envycontrol switcheroo-control |g' $folder/MHWDCONFIG
     fi
 done
 
@@ -74,6 +74,7 @@ echo "$ShowText" >> /etc/modprobe.d/nvidia-pm.conf
 fi
 
 # Add file to enable power manager for nvidia
+# Optimus manager not default used in BigLinux, but add good configuration just because we like make best system
 if [[ ! -e /etc/optimus-manager/optimus-manager.conf ]]; then
 
 mkdir -p /etc/optimus-manager/
