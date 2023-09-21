@@ -1,10 +1,11 @@
 [Unit]
 Description=Verify nvidia and switcheroo
-Before=multi-user.target display-manager.service alsa-restore.service alsa-state.service
+Before=multi-user.target display-manager.service gdm.service sddm.service lightdm.service
 After=mhwd-live.service
 
 [Service]
-Type=simple
+Type=oneshot
+RemainAfterExit=yes
 ExecStart=mhwd-verify-hybrid-boot
 
 [Install]
