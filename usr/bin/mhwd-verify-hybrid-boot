@@ -1,17 +1,23 @@
 #!/usr/bin/env bash
 
-# verify if switcheroo is enabled
-if ! systemctl -q is-enabled switcheroo-control; then
-	vgaList=$(lspci | grep -i VGA)
-	if [[ $(echo $vgaList | grep -i nvidia) ]] && [[ $(echo "$vgaList" | wc -l) > 1 ]]; then
-		envycontrol -s hybrid
-		systemctl enable biglinux-dual-gpu-manager-after-display-manager
-		systemctl enable --now biglinux-dual-gpu-manager
-		systemctl enable --now switcheroo-control
-		echo '<device screen="0" driver="dri2">
-		<application name="Default">
-			<option name="vblank_mode" value="0"/>
-		</application>
-	</device>' > /etc/drirc
+# Verify packages installed
+if [ -e /var/lib/pacman/local/nvidia-prime-* ] && [ -e /var/lib/pacman/local/switcheroo-control-* ]; then
+	# verify if switcheroo is enabled
+	if ! systemctl -q is-enabled switcheroo-control; then
+		vgaList=$(lspci | grep -i VGA)
+		if [[ $(echo $vgaList | grep -i nvidia) ]] && [[ $(echo "$vgaList" | wc -l) > 1 ]]; then
+			envycontrol -s hybrid
+			systemctl enable biglinux-dual-gpu-manager-after-display-manager
+			
+			systemctl enable biglinux-dual-gpu-manager
+			/usr/bin/biglinux-dual-gpu-manager off
+			
+			systemctl enable --now switcheroo-control
+			echo '<device screen="0" driver="dri2">
+			<application name="Default">
+				<option name="vblank_mode" value="0"/>
+			</application>
+		</device>' > /etc/drirc
+		fi
 	fi
 fi
