@@ -42,9 +42,9 @@ hybrid-intel-nvidia-470xx-prime
 hybrid-intel-nvidia-prime"
 
 for folder in $Folders; do
-    # Add envycontrol and switcheroo-control to files
-    if ! grep -q 'envycontrol switcheroo-control' $folder/MHWDCONFIG; then
-        sed -i 's|^DEPENDS="|DEPENDS="envycontrol switcheroo-control |g' $folder/MHWDCONFIG
+    # Add switcheroo-control to files
+    if ! grep -q 'switcheroo-control' $folder/MHWDCONFIG; then
+        sed -i 's|^DEPENDS="|DEPENDS="switcheroo-control |g' $folder/MHWDCONFIG
     fi
 done
 
