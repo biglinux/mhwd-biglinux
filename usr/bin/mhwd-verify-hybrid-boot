@@ -3,7 +3,7 @@
 # verify if switcheroo is enabled
 if ! systemctl -q is-enabled switcheroo-control; then
 	vgaList=$(lspci | grep -i VGA)
-	if [[ $(echo $vgaList | grep -i nvidia) ]] && [[ $(echo $vgaList | wc -l) > 1 ]]; then
+	if [[ $(echo $vgaList | grep -i nvidia) ]] && [[ $(echo "$vgaList" | wc -l) > 1 ]]; then
 		envycontrol -s hybrid
 		systemctl enable biglinux-dual-gpu-manager-after-display-manager
 		systemctl enable --now biglinux-dual-gpu-manager
