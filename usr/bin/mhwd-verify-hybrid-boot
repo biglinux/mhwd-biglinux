@@ -10,7 +10,7 @@ if [ -e /var/lib/pacman/local/nvidia-prime-* ] && [ -e /var/lib/pacman/local/swi
 			systemctl enable biglinux-dual-gpu-manager-after-display-manager
 			
 			systemctl enable biglinux-dual-gpu-manager
-			/usr/bin/biglinux-dual-gpu-manager off
+			timeout 30s /usr/bin/biglinux-dual-gpu-manager off
 			
 			systemctl enable --now switcheroo-control
 			echo '<device screen="0" driver="dri2">
