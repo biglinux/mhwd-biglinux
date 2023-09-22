@@ -35,15 +35,14 @@ function turnOff {
             for nvidiaID in $nvidiaVGAID; do
                 nvidiaBus="0000:$nvidiaID"
             
-                if [ -d "$nvidiaBus" ]; then
-                    echo "parte 6 $nvidiaBus" >> /tmp/nvx-log3
-                    cat "$nvidiaBus/uevent" >> /tmp/nvx-log3
-                    
+                if [ -d "$nvidiaBus" ]; then                    
                     # Check if the uevent file contains the string "DRIVER=nvidia"
                     # if grep -q "DRIVER=nvidia" "$nvidiaBus/uevent"; then
                         echo "Nvidia in $pciePortBus/$nvidiaBus/uevent"
                         # removeModule # disabled
                         # remove device
+                        systemctl stop nvidia-persistenced.service
+                        systemctl mask nvidia-persistenced.service
                         echo 1 > "/sys/bus/pci/devices/$nvidiaBus/remove"
                         echo auto > "/sys/bus/pci/devices/$pciePortBus/power/control"
                         echo "Removed: $pciFolder"
