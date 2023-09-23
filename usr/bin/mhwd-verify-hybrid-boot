@@ -27,15 +27,13 @@ if [ -e /var/lib/pacman/local/nvidia-prime-* ] && [ -e /var/lib/pacman/local/swi
 				sed -i 's|nvidia-drm modeset=1|nvidia-drm modeset=0|g' /usr/lib/python*/site-packages/envycontrol.py
 				envycontrol -s hybrid
 			elif  grep 'bignvidia=5' /proc/cmdline; then
-				sed -i 's|nvidia-drm modeset=1|nvidia-drm modeset=0|g' /usr/lib/python*/site-packages/envycontrol.py
-				envycontrol -s hybrid
-			elif  grep 'bignvidia=6' /proc/cmdline; then
 				envycontrol -s integrated
-			elif  grep 'bignvidia=7' /proc/cmdline; then
+			elif  grep 'bignvidia=6' /proc/cmdline; then
 				envycontrol -s nvidia
-			elif  grep 'bignvidia=8' /proc/cmdline; then
+			elif  grep 'bignvidia=7' /proc/cmdline; then
 				echo ""
 			else
+				sed -i 's|nvidia-drm modeset=1|nvidia-drm modeset=0|g' /usr/lib/python*/site-packages/envycontrol.py
 				envycontrol -s hybrid
 				systemctl enable biglinux-dual-gpu-manager-after-display-manager
 				systemctl enable biglinux-dual-gpu-manager
