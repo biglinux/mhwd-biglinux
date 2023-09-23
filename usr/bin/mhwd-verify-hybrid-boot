@@ -9,6 +9,8 @@ if [ -e /var/lib/pacman/local/nvidia-prime-* ] && [ -e /var/lib/pacman/local/swi
 			if grep 'bignvidia=1' /proc/cmdline; then
 				sed -i 's|nvidia-drm modeset=1|nvidia-drm modeset=0|g' /usr/lib/python*/site-packages/envycontrol.py
 				envycontrol -s hybrid
+				systemctl stop nvidia-persistenced.service
+				systemctl mask nvidia-persistenced.service
 				systemctl enable biglinux-dual-gpu-manager-after-display-manager
 				systemctl enable biglinux-dual-gpu-manager
 				/usr/bin/biglinux-dual-gpu-manager removeModules 2>&1 &
@@ -35,6 +37,8 @@ if [ -e /var/lib/pacman/local/nvidia-prime-* ] && [ -e /var/lib/pacman/local/swi
 			else
 				sed -i 's|nvidia-drm modeset=1|nvidia-drm modeset=0|g' /usr/lib/python*/site-packages/envycontrol.py
 				envycontrol -s hybrid
+				systemctl stop nvidia-persistenced.service
+				systemctl mask nvidia-persistenced.service
 				systemctl enable biglinux-dual-gpu-manager-after-display-manager
 				systemctl enable biglinux-dual-gpu-manager
 				/usr/bin/biglinux-dual-gpu-manager removeModules 2>&1 &
