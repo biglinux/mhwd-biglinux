@@ -6,12 +6,43 @@ if [ -e /var/lib/pacman/local/nvidia-prime-* ] && [ -e /var/lib/pacman/local/swi
 	if ! systemctl -q is-enabled switcheroo-control; then
 		vgaList=$(lspci | grep -i VGA)
 		if [[ $(echo $vgaList | grep -i nvidia) ]] && [[ $(echo "$vgaList" | wc -l) > 1 ]]; then
-			envycontrol -s hybrid
-			systemctl enable biglinux-dual-gpu-manager-after-display-manager
-			
-# 			systemctl enable biglinux-dual-gpu-manager
-# 			/usr/bin/biglinux-dual-gpu-manager off 2>&1 &
-			
+			if grep 'bignvidia=1' /proc/cmdline; then
+				sed -i 's|nvidia-drm modeset=1|nvidia-drm modeset=0|g' /usr/lib/python*/site-packages/envycontrol.py
+				envycontrol -s hybrid
+				systemctl enable biglinux-dual-gpu-manager-after-display-manager
+				systemctl enable biglinux-dual-gpu-manager
+				/usr/bin/biglinux-dual-gpu-manager removeModules 2>&1 &
+			elif  grep 'bignvidia=2' /proc/cmdline; then
+				envycontrol -s hybrid
+				systemctl enable biglinux-dual-gpu-manager-after-display-manager
+				systemctl enable biglinux-dual-gpu-manager
+				/usr/bin/biglinux-dual-gpu-manager off 2>&1 &
+			elif  grep 'bignvidia=3' /proc/cmdline; then
+				sed -i 's|nvidia-drm modeset=1|nvidia-drm modeset=0|g' /usr/lib/python*/site-packages/envycontrol.py
+				envycontrol -s hybrid
+				systemctl enable biglinux-dual-gpu-manager-after-display-manager
+				systemctl enable biglinux-dual-gpu-manager
+				/usr/bin/biglinux-dual-gpu-manager off 2>&1 &
+			elif  grep 'bignvidia=4' /proc/cmdline; then
+				sed -i 's|nvidia-drm modeset=1|nvidia-drm modeset=0|g' /usr/lib/python*/site-packages/envycontrol.py
+				envycontrol -s hybrid
+			elif  grep 'bignvidia=5' /proc/cmdline; then
+				sed -i 's|nvidia-drm modeset=1|nvidia-drm modeset=0|g' /usr/lib/python*/site-packages/envycontrol.py
+				envycontrol -s hybrid
+			elif  grep 'bignvidia=6' /proc/cmdline; then
+				envycontrol -s integrated
+			elif  grep 'bignvidia=7' /proc/cmdline; then
+				envycontrol -s nvidia
+			elif  grep 'bignvidia=8' /proc/cmdline; then
+				echo ""
+			else
+				envycontrol -s hybrid
+				systemctl enable biglinux-dual-gpu-manager-after-display-manager
+				systemctl enable biglinux-dual-gpu-manager
+				/usr/bin/biglinux-dual-gpu-manager removeModules 2>&1 &
+				/usr/bin/biglinux-dual-gpu-manager off 2>&1 &
+			fi
+
 			systemctl enable --now switcheroo-control
 			echo '<device screen="0" driver="dri2">
 			<application name="Default">
