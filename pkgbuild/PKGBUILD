@@ -9,7 +9,7 @@ url="https://github.com/biglinux/$pkgname"
 license=('GPL3')
 depends=('mhwd' 'envycontrol')
 provides=("$pkgname")
-# conflicts=('')
+conflicts=('optimus-manager' 'optimus-manager-plasma' 'optimus-manager-qt')
 source=("git+${url}.git")
 md5sums=('SKIP')
 if [ -e "${pkgname}.install" ];then
