@@ -157,14 +157,12 @@ if [[ $gpuIntel && $gpuNvidia && -z $biglinuxGpuMode || $gpuIntel && $gpuNvidia 
     addBlacklistNouveauGrub
     useIntelDriverInXorgForIntel
     useGpu=Intel addInSddm
-    if [[ ! -e /run/miso/bootmnt ]]; then
-        if $updateGrub; then
-            update-grub
-        fi
-        initcpioEnableModesetNvidia
-        initcpioEnablePageAttributeTable
-        mkinitcpio -P
+    if $updateGrub; then
+        update-grub
     fi
+    initcpioEnableModesetNvidia
+    initcpioEnablePageAttributeTable
+    mkinitcpio -P
     #intel+nvidia+mode 1
     echo 1 > /etc/biglinux-gpu-mode
 
@@ -180,14 +178,12 @@ elif [[ $gpuIntel && $gpuNvidia && "$1" = "mode-2" ]]; then
     useIntelDriverInXorgForIntel
     enableSwitcheroo
     useGpu=Nvidia addInSddm
-    if [[ ! -e /run/miso/bootmnt ]]; then
-        if $updateGrub; then
-            update-grub
-        fi
-        initcpioEnableModesetNvidia
-        initcpioEnablePageAttributeTable
-        mkinitcpio -P
+    if $updateGrub; then
+        update-grub
     fi
+    initcpioEnableModesetNvidia
+    initcpioEnablePageAttributeTable
+    mkinitcpio -P
     #intel+nvidia+mode 1
     echo 1 > /etc/biglinux-gpu-mode
 fi
