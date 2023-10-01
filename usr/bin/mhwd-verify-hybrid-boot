@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # Verify packages installed
-if [ -e /var/lib/pacman/local/envycontrol-* ] && [ -e /var/lib/pacman/local/switcheroo-control-* ]; then
+if [ -e /var/lib/pacman/local/switcheroo-control-* ]; then
 	# verify if switcheroo is enabled
 	if ! systemctl -q is-enabled switcheroo-control; then
 		vgaList=$(lspci | grep -i VGA)
@@ -10,7 +10,7 @@ if [ -e /var/lib/pacman/local/envycontrol-* ] && [ -e /var/lib/pacman/local/swit
 				sed -i 's|nvidia-drm modeset=1|nvidia-drm modeset=0|g' /usr/lib/python*/site-packages/envycontrol.py
 				mkdir -p /usr/share/biglinux/xorg-bkp-config
 				rmmod nouveau 2> /dev/null
-				envycontrol -s hybrid
+				biglinux-gpu-manager mode-1
 				mv -f /usr/share/glvnd/egl_vendor.d/10_nvidia.json /usr/share/biglinux/xorg-bkp-config/10_nvidia.json
 				mv -f /usr/share/X11/xorg.conf.d/10-amdgpu-nvidia-drm-outputclass.conf /usr/share/biglinux/xorg-bkp-config/10-amdgpu-nvidia-drm-outputclass.conf
 				mv -f /usr/share/X11/xorg.conf.d/10-intel-nvidia-drm-outputclass.conf /usr/share/biglinux/xorg-bkp-config/10-intel-nvidia-drm-outputclass.conf
@@ -18,7 +18,7 @@ if [ -e /var/lib/pacman/local/envycontrol-* ] && [ -e /var/lib/pacman/local/swit
 				rm -f /etc/X11/xorg.conf.d/10-nvidia.conf
 				rm -f /etc/X11/xorg.conf
 			elif  grep 'bignvidia=2' /proc/cmdline; then
-				envycontrol -s hybrid
+				biglinux-gpu-manager mode-1
 				systemctl stop nvidia-persistenced.service
 				systemctl mask nvidia-persistenced.service
 				systemctl enable biglinux-dual-gpu-manager-after-display-manager
@@ -27,13 +27,13 @@ if [ -e /var/lib/pacman/local/envycontrol-* ] && [ -e /var/lib/pacman/local/swit
 				/usr/bin/biglinux-dual-gpu-manager off 2>&1 &
 			elif  grep 'bignvidia=3' /proc/cmdline; then
 				sed -i 's|nvidia-drm modeset=1|nvidia-drm modeset=0|g' /usr/lib/python*/site-packages/envycontrol.py
-				envycontrol -s hybrid
+				biglinux-gpu-manager mode-1
 				systemctl enable biglinux-dual-gpu-manager-after-display-manager
 				systemctl enable biglinux-dual-gpu-manager
 				/usr/bin/biglinux-dual-gpu-manager off 2>&1 &
 			elif  grep 'bignvidia=4' /proc/cmdline; then
 				sed -i 's|nvidia-drm modeset=1|nvidia-drm modeset=0|g' /usr/lib/python*/site-packages/envycontrol.py
-				envycontrol -s hybrid
+				biglinux-gpu-manager mode-1
 				systemctl stop nvidia-persistenced.service
 				systemctl mask nvidia-persistenced.service
 				systemctl enable biglinux-dual-gpu-manager-after-display-manager
@@ -41,7 +41,7 @@ if [ -e /var/lib/pacman/local/envycontrol-* ] && [ -e /var/lib/pacman/local/swit
 				/usr/bin/biglinux-dual-gpu-manager removeModules 2>&1 &
 			elif  grep 'bignvidia=5' /proc/cmdline; then
 				sed -i 's|nvidia-drm modeset=1|nvidia-drm modeset=0|g' /usr/lib/python*/site-packages/envycontrol.py
-				envycontrol -s hybrid
+				biglinux-gpu-manager mode-1
 				systemctl stop nvidia-persistenced.service
 				systemctl mask nvidia-persistenced.service
 				systemctl enable biglinux-dual-gpu-manager-after-display-manager
@@ -49,16 +49,14 @@ if [ -e /var/lib/pacman/local/envycontrol-* ] && [ -e /var/lib/pacman/local/swit
 				/usr/bin/biglinux-dual-gpu-manager removeModules 2>&1 &
 				/usr/bin/biglinux-dual-gpu-manager off 2>&1 &
 			elif  grep 'bignvidia=6' /proc/cmdline; then
-				envycontrol -s integrated
+				biglinux-gpu-manager mode-1
 			elif  grep 'bignvidia=7' /proc/cmdline; then
-				envycontrol -s nvidia
+				biglinux-gpu-manager mode-1
 			elif  grep 'bignvidia=8' /proc/cmdline; then
 				sed -i 's|nvidia-drm modeset=0|nvidia-drm modeset=1|g' /usr/lib/python*/site-packages/envycontrol.py
-				envycontrol -s hybrid
+				biglinux-gpu-manager mode-1
 			else
-				sed -i 's|nvidia-drm.modeset=1||g' /etc/default/grub
-				sed -i 's|nvidia-drm modeset=1|nvidia-drm modeset=0|g' /usr/lib/python*/site-packages/envycontrol.py
-				envycontrol -s hybrid
+				biglinux-gpu-manager
 			fi
 
 			systemctl enable --now switcheroo-control

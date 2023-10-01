@@ -7,9 +7,9 @@ pkgdesc="Add suport to linux-xanmod and better hybrid gpu"
 arch=('any')
 url="https://github.com/biglinux/$pkgname"
 license=('GPL3')
-depends=('mhwd' 'envycontrol')
+depends=('mhwd')
 provides=("$pkgname")
-conflicts=('optimus-manager' 'optimus-manager-plasma' 'optimus-manager-qt')
+#conflicts=('optimus-manager' 'optimus-manager-plasma' 'optimus-manager-qt')
 source=("git+${url}.git")
 md5sums=('SKIP')
 if [ -e "${pkgname}.install" ];then
