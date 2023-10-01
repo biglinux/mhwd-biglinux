@@ -56,6 +56,7 @@ if [ -e /var/lib/pacman/local/envycontrol-* ] && [ -e /var/lib/pacman/local/swit
 				sed -i 's|nvidia-drm modeset=0|nvidia-drm modeset=1|g' /usr/lib/python*/site-packages/envycontrol.py
 				envycontrol -s hybrid
 			else
+				sed -i 's|nvidia-drm.modeset=1||g' /etc/default/grub
 				sed -i 's|nvidia-drm modeset=1|nvidia-drm modeset=0|g' /usr/lib/python*/site-packages/envycontrol.py
 				envycontrol -s hybrid
 			fi

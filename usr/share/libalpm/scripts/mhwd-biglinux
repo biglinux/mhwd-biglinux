@@ -32,6 +32,9 @@ if ! grep -q linux-xanmod /usr/bin/mhwd-kernel; then
     sed -i 's/current="linux$major$minor"/if uname -r | grep xanmod.*lts >\/dev\/null; then current="linux-xanmod-lts"; elif uname -r | grep xanmod >\/dev\/null; then current="linux-xanmod";  else current="linux$major$minor"; fi/g' /usr/bin/mhwd-kernel
 fi
 
+# Change mkinitcpio
+sed -i 's|MODULES="crc32c-intel"|MODULES=(nvidia? nvidia_modeset? nvidia_uvm? nvidia_drm?)|g' /etc/mkinitcpio.conf
+
 # Folder with scripts
 cd /var/lib/mhwd/db/pci/graphic_drivers/
 
@@ -49,7 +52,7 @@ for folder in $Folders; do
 done
 
 # Add file to enable power manager for nvidia
-if [[ ! -e /etc/udev/rules.d/80-nvidia-pm.rules ]]; then
+if [[ ! -e /etc/udev/rules.d/80-nvidia-pm.rules || ! -e /etc/mhwd-biglinux-applied ]]; then
 read -d $'' ShowText <<EOF
 #Remove NVIDIA USB xHCI Host Controller devices, if present
 ACTION=="add", SUBSYSTEM=="pci", ATTR{vendor}=="0x10de", ATTR{class}=="0x0c0330", ATTR{remove}="1"
@@ -69,6 +72,13 @@ ACTION=="unbind", SUBSYSTEM=="pci", ATTR{vendor}=="0x10de", ATTR{class}=="0x0300
 ACTION=="unbind", SUBSYSTEM=="pci", ATTR{vendor}=="0x10de", ATTR{class}=="0x030200", TEST=="power/control", ATTR{power/control}="on"
 EOF
 echo "$ShowText" >> /etc/udev/rules.d/80-nvidia-pm.rules
+
+
+# if [[ $(lspci | grep VGA | wc -l) > 1 && -n $(lsmod | grep nvidia_drm) ]]; then
+#     sed -i 's|nvidia-drm.modeset=1||g' /etc/default/grub
+#     nvidia-drm modeset=0
+# fi
+
 
 fi
 

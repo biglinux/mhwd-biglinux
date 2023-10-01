@@ -6,7 +6,7 @@ function turnOff {
     nvidiaVGA=$(grep -Ei 'VGA.*NVIDIA' <(lspci))
     # Filter only ID
     nvidiaVGAID=${nvidiaVGA%% *}
-    
+
     if [[ -z $nvidiaVGAID ]]; then
         echo "Nvidia VGA not detected"
         exit
@@ -34,8 +34,8 @@ function turnOff {
             # Loop through each subfolder starting with a number
             for nvidiaID in $nvidiaVGAID; do
                 nvidiaBus="0000:$nvidiaID"
-            
-                if [ -d "$nvidiaBus" ]; then                    
+
+                if [ -d "$nvidiaBus" ]; then
                     # Check if the uevent file contains the string "DRIVER=nvidia"
                     # if grep -q "DRIVER=nvidia" "$nvidiaBus/uevent"; then
                         echo "Nvidia in $pciePortBus/$nvidiaBus/uevent"
