@@ -67,8 +67,6 @@ fi
 # fi
 
 
-fi
-
 # Add file to enable power manager for nvidia
 if [[ ! -e /etc/modprobe.d/nvidia-pm.conf ]]; then
 
