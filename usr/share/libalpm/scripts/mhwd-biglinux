@@ -51,8 +51,14 @@ for folder in $Folders; do
     fi
 done
 
+if [[ -e /etc/udev/rules.d/80-nvidia-pm.rules ]]; then
+    if grep -q 'ACTION=="add", SUBSYSTEM=="pci", ATTR{vendor}=="0x10de", ATTR{class}=="0x040300", ATTR{remove}="1"' /etc/udev/rules.d/80-nvidia-pm.rules; then
+        rm -f /etc/udev/rules.d/80-nvidia-pm.rules
+    fi
+fi
+
 # Add file to enable power manager for nvidia
-if [[ ! -e /etc/udev/rules.d/80-nvidia-pm.rules || ! -e /etc/mhwd-biglinux-applied ]]; then
+if [[ -e /etc/udev/rules.d/80-nvidia-pm.rules ]]; then
 read -d $'' ShowText <<EOF
 #Remove NVIDIA USB xHCI Host Controller devices, if present
 ACTION=="add", SUBSYSTEM=="pci", ATTR{vendor}=="0x10de", ATTR{class}=="0x0c0330", ATTR{remove}="1"
