@@ -32,6 +32,9 @@ if ! grep -q linux-xanmod /usr/bin/mhwd-kernel; then
     sed -i 's/current="linux$major$minor"/if uname -r | grep xanmod.*lts >\/dev\/null; then current="linux-xanmod-lts"; elif uname -r | grep xanmod >\/dev\/null; then current="linux-xanmod";  else current="linux$major$minor"; fi/g' /usr/bin/mhwd-kernel
 fi
 
+# Not try in in obsolete kernel
+sed -i 's#KERNELS=$(pacman -Qqs .*linux-xanmod-lts$")#KERNELS=$(pacman -Qqs "^linux[0-9][0-9]?([0-9])$|^linux-xanmod$|^linux-xanmod-lts$" | LANG=C xargs pacman -Si 2>/dev/null | grep ^Name | sed '\''s|.*: ||g'\'')#' /var/lib/mhwd/scripts/mhwd
+
 # Change mkinitcpio
 sed -i 's|MODULES="crc32c-intel"|MODULES=(nvidia? nvidia_modeset? nvidia_uvm? nvidia_drm?)|g' /etc/mkinitcpio.conf
 
@@ -56,28 +59,6 @@ if [[ -e /etc/udev/rules.d/80-nvidia-pm.rules ]]; then
         rm -f /etc/udev/rules.d/80-nvidia-pm.rules
     fi
 fi
-
-# Add file to enable power manager for nvidia
-if [[ -e /etc/udev/rules.d/80-nvidia-pm.rules ]]; then
-read -d $'' ShowText <<EOF
-#Remove NVIDIA USB xHCI Host Controller devices, if present
-ACTION=="add", SUBSYSTEM=="pci", ATTR{vendor}=="0x10de", ATTR{class}=="0x0c0330", ATTR{remove}="1"
-
-#Remove NVIDIA USB Type-C UCSI devices, if present
-ACTION=="add", SUBSYSTEM=="pci", ATTR{vendor}=="0x10de", ATTR{class}=="0x0c8000", ATTR{remove}="1"
-
-#Remove NVIDIA Audio devices, if present
-ACTION=="add", SUBSYSTEM=="pci", ATTR{vendor}=="0x10de", ATTR{class}=="0x040300", ATTR{remove}="1"
-
-#Enable runtime PM for NVIDIA VGA/3D controller devices on driver bind
-ACTION=="bind", SUBSYSTEM=="pci", ATTR{vendor}=="0x10de", ATTR{class}=="0x030000", TEST=="power/control", ATTR{power/control}="auto"
-ACTION=="bind", SUBSYSTEM=="pci", ATTR{vendor}=="0x10de", ATTR{class}=="0x030200", TEST=="power/control", ATTR{power/control}="auto"
-
-#Disable runtime PM for NVIDIA VGA/3D controller devices on driver unbind
-ACTION=="unbind", SUBSYSTEM=="pci", ATTR{vendor}=="0x10de", ATTR{class}=="0x030000", TEST=="power/control", ATTR{power/control}="on"
-ACTION=="unbind", SUBSYSTEM=="pci", ATTR{vendor}=="0x10de", ATTR{class}=="0x030200", TEST=="power/control", ATTR{power/control}="on"
-EOF
-echo "$ShowText" >> /etc/udev/rules.d/80-nvidia-pm.rules
 
 
 # if [[ $(lspci | grep VGA | wc -l) > 1 && -n $(lsmod | grep nvidia_drm) ]]; then

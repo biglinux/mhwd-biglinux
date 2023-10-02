@@ -146,7 +146,7 @@ function installIntelXorgPkg {
     fi
 }
 
-# Intel + Nvidia Mode 1
+# Intel using intel + Nvidia Mode 1
 # Run if have intel + nvidia without /etc/biglinux-mode-gpu mode file or intel + nvidia + $1 pass mode-1 intel as primary
 if [[ $gpuIntel && $gpuNvidia && -z $biglinuxGpuMode || $gpuIntel && $gpuNvidia && "$1" = "mode-1" ]]; then
     if ! lsmod | grep -q nvidia_drm; then
@@ -166,7 +166,7 @@ if [[ $gpuIntel && $gpuNvidia && -z $biglinuxGpuMode || $gpuIntel && $gpuNvidia 
     #intel+nvidia+mode 1
     echo 1 > /etc/biglinux-gpu-mode
 
-# Intel + Nvidia mode-2
+# Intel using intel + Nvidia mode-2
 # Intel + Nvidia and nvidia with primary
 elif [[ $gpuIntel && $gpuNvidia && "$1" = "mode-2" ]]; then
     if ! lsmod | grep -q nvidia_drm; then
@@ -176,6 +176,45 @@ elif [[ $gpuIntel && $gpuNvidia && "$1" = "mode-2" ]]; then
     removeModesetGrub
     addBlacklistNouveauGrub
     useIntelDriverInXorgForIntel
+    enableSwitcheroo
+    useGpu=Nvidia addInSddm
+    if $updateGrub; then
+        update-grub
+    fi
+    initcpioEnableModesetNvidia
+    initcpioEnablePageAttributeTable
+    mkinitcpio -P
+    #intel+nvidia+mode 1
+    echo 1 > /etc/biglinux-gpu-mode
+
+# Intel using modesetting + Nvidia mode-3
+# Intel + Nvidia and nvidia with primary
+
+elif [[ $gpuIntel && $gpuNvidia && "$1" = "mode-2" ]]; then
+    if ! lsmod | grep -q nvidia_drm; then
+        autoInstallDriver
+    fi
+    removeModesetGrub
+    addBlacklistNouveauGrub
+    useModesettingDriverInXorgForIntel
+    enableSwitcheroo
+    useGpu=Intel addInSddm
+    if $updateGrub; then
+        update-grub
+    fi
+    initcpioEnableModesetNvidia
+    initcpioEnablePageAttributeTable
+    mkinitcpio -P
+    #intel+nvidia+mode 1
+    echo 1 > /etc/biglinux-gpu-mode
+
+elif [[ $gpuIntel && $gpuNvidia && "$1" = "mode-2" ]]; then
+    if ! lsmod | grep -q nvidia_drm; then
+        autoInstallDriver
+    fi
+    removeModesetGrub
+    addBlacklistNouveauGrub
+    useModesettingDriverInXorgForIntel
     enableSwitcheroo
     useGpu=Nvidia addInSddm
     if $updateGrub; then
