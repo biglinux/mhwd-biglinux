@@ -156,6 +156,7 @@ if [[ $gpuIntel && $gpuNvidia && -z $biglinuxGpuMode || $gpuIntel && $gpuNvidia 
     removeModesetGrub
     addBlacklistNouveauGrub
     useIntelDriverInXorgForIntel
+    enableSwitcheroo
     useGpu=Intel addInSddm
     if $updateGrub; then
         update-grub
