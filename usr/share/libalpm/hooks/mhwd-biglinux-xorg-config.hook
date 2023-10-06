@@ -1,0 +1,16 @@
+[Trigger]
+Type = File
+Operation = Install
+Operation = Upgrade
+Target = usr/share/X11/xorg.conf.d/10-intel-nvidia-drm-outputclass.conf
+
+[Trigger]
+Type = Package
+Operation = Install
+Operation = Upgrade
+Target = mhwd-biglinux
+
+[Action]
+Description = Update xorg configuration
+When = PostTransaction
+Exec = /usr/share/libalpm/scripts/mhwd-biglinux-xorg-config

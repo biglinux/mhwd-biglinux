@@ -185,12 +185,12 @@ elif [[ $gpuIntel && $gpuNvidia && "$1" = "mode-2" ]]; then
     initcpioEnablePageAttributeTable
     mkinitcpio -P
     #intel+nvidia+mode 1
-    echo 1 > /etc/biglinux-gpu-mode
+    echo 2 > /etc/biglinux-gpu-mode
 
 # Intel using modesetting + Nvidia mode-3
 # Intel + Nvidia and nvidia with primary
 
-elif [[ $gpuIntel && $gpuNvidia && "$1" = "mode-2" ]]; then
+elif [[ $gpuIntel && $gpuNvidia && "$1" = "mode-3" ]]; then
     if ! lsmod | grep -q nvidia_drm; then
         autoInstallDriver
     fi
@@ -206,9 +206,9 @@ elif [[ $gpuIntel && $gpuNvidia && "$1" = "mode-2" ]]; then
     initcpioEnablePageAttributeTable
     mkinitcpio -P
     #intel+nvidia+mode 1
-    echo 1 > /etc/biglinux-gpu-mode
+    echo 3 > /etc/biglinux-gpu-mode
 
-elif [[ $gpuIntel && $gpuNvidia && "$1" = "mode-2" ]]; then
+elif [[ $gpuIntel && $gpuNvidia && "$1" = "mode-4" ]]; then
     if ! lsmod | grep -q nvidia_drm; then
         autoInstallDriver
     fi
@@ -224,9 +224,12 @@ elif [[ $gpuIntel && $gpuNvidia && "$1" = "mode-2" ]]; then
     initcpioEnablePageAttributeTable
     mkinitcpio -P
     #intel+nvidia+mode 1
-    echo 1 > /etc/biglinux-gpu-mode
+    echo 4 > /etc/biglinux-gpu-mode
 fi
 
+if [[ $gpuIntel && $gpuNvidia && "$1" = "update-1" ]]; then
+    useIntelDriverInXorgForIntel
+fi
 
 
 # if [[ $gpuIntel && $gpuAmd ]]; then
