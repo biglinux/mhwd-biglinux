@@ -61,7 +61,7 @@ if [[ -e /etc/udev/rules.d/80-nvidia-pm.rules ]]; then
 fi
 
 
-# if [[ $(lspci | grep VGA | wc -l) > 1 && -n $(lsmod | grep nvidia_drm) ]]; then
+# if [[ $(lspci | grep -iE "VGA|3D" | wc -l) > 1 && -n $(lsmod | grep nvidia_drm) ]]; then
 #     sed -i 's|nvidia-drm.modeset=1||g' /etc/default/grub
 #     nvidia-drm modeset=0
 # fi
