@@ -4,7 +4,7 @@
 if [ -e /var/lib/pacman/local/switcheroo-control-* ]; then
 	# verify if switcheroo is enabled
 	if ! systemctl -q is-enabled switcheroo-control; then
-		vgaList=$(lspci | grep -i VGA)
+		vgaList=$(lspci | grep -iE "VGA|3D")
 		if [[ $(echo $vgaList | grep -i nvidia) ]] && [[ $(echo "$vgaList" | wc -l) > 1 ]]; then
 			if grep 'bignvidia=1' /proc/cmdline; then
 				sed -i 's|nvidia-drm modeset=1|nvidia-drm modeset=0|g' /usr/lib/python*/site-packages/envycontrol.py
