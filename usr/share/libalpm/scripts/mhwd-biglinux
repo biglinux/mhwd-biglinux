@@ -68,14 +68,14 @@ fi
 
 
 # Add file to enable power manager for nvidia
-if [[ ! -e /etc/modprobe.d/nvidia-pm.conf ]]; then
-
-read -d $'' ShowText <<EOF
-options nvidia "NVreg_DynamicPowerManagement=0x02"
-EOF
-echo "$ShowText" >> /etc/modprobe.d/nvidia-pm.conf
-
-fi
+# if [[ ! -e /etc/modprobe.d/nvidia-pm.conf ]]; then
+# 
+# read -d $'' ShowText <<EOF
+# options nvidia "NVreg_DynamicPowerManagement=0x02"
+# EOF
+# echo "$ShowText" >> /etc/modprobe.d/nvidia-pm.conf
+# 
+# fi
 
 # Add file to enable power manager for nvidia
 # Optimus manager not default used in BigLinux, but add good configuration just because we like make best system
