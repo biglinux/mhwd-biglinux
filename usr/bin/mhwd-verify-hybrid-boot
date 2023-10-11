@@ -5,54 +5,37 @@ if ! systemctl -q is-enabled switcheroo-control; then
 	vgaList=$(lspci | grep -iE "VGA|3D|Display")
 	if [[ $(echo $vgaList | grep -i nvidia) ]] && [[ $(echo "$vgaList" | wc -l) > 1 ]]; then
 		if grep 'bignvidia=1' /proc/cmdline; then
-			sed -i 's|nvidia-drm modeset=1|nvidia-drm modeset=0|g' /usr/lib/python*/site-packages/envycontrol.py
-			mkdir -p /usr/share/biglinux/xorg-bkp-config
-			rmmod nouveau 2> /dev/null
 			biglinux-gpu-manager mode-1
-			mv -f /usr/share/glvnd/egl_vendor.d/10_nvidia.json /usr/share/biglinux/xorg-bkp-config/10_nvidia.json
-			mv -f /usr/share/X11/xorg.conf.d/10-amdgpu-nvidia-drm-outputclass.conf /usr/share/biglinux/xorg-bkp-config/10-amdgpu-nvidia-drm-outputclass.conf
-			mv -f /usr/share/X11/xorg.conf.d/10-intel-nvidia-drm-outputclass.conf /usr/share/biglinux/xorg-bkp-config/10-intel-nvidia-drm-outputclass.conf
-			rm -f /etc/X11/xorg.conf.d/90-nvidia.conf
-			rm -f /etc/X11/xorg.conf.d/10-nvidia.conf
-			rm -f /etc/X11/xorg.conf
 		elif  grep 'bignvidia=2' /proc/cmdline; then
-			biglinux-gpu-manager mode-1
-			systemctl stop nvidia-persistenced.service
-			systemctl mask nvidia-persistenced.service
-			systemctl enable biglinux-dual-gpu-manager-after-display-manager
-			systemctl enable biglinux-dual-gpu-manager
-			/usr/bin/biglinux-dual-gpu-manager removeModules 2>&1 &
-			/usr/bin/biglinux-dual-gpu-manager off 2>&1 &
+			biglinux-gpu-manager mode-2
 		elif  grep 'bignvidia=3' /proc/cmdline; then
-			sed -i 's|nvidia-drm modeset=1|nvidia-drm modeset=0|g' /usr/lib/python*/site-packages/envycontrol.py
-			biglinux-gpu-manager mode-1
-			systemctl enable biglinux-dual-gpu-manager-after-display-manager
-			systemctl enable biglinux-dual-gpu-manager
-			/usr/bin/biglinux-dual-gpu-manager off 2>&1 &
+			biglinux-gpu-manager mode-3
 		elif  grep 'bignvidia=4' /proc/cmdline; then
-			sed -i 's|nvidia-drm modeset=1|nvidia-drm modeset=0|g' /usr/lib/python*/site-packages/envycontrol.py
-			biglinux-gpu-manager mode-1
-			systemctl stop nvidia-persistenced.service
-			systemctl mask nvidia-persistenced.service
-			systemctl enable biglinux-dual-gpu-manager-after-display-manager
-			systemctl enable biglinux-dual-gpu-manager
-			/usr/bin/biglinux-dual-gpu-manager removeModules 2>&1 &
+			biglinux-gpu-manager mode-4
 		elif  grep 'bignvidia=5' /proc/cmdline; then
-			sed -i 's|nvidia-drm modeset=1|nvidia-drm modeset=0|g' /usr/lib/python*/site-packages/envycontrol.py
-			biglinux-gpu-manager mode-1
-			systemctl stop nvidia-persistenced.service
-			systemctl mask nvidia-persistenced.service
-			systemctl enable biglinux-dual-gpu-manager-after-display-manager
-			systemctl enable biglinux-dual-gpu-manager
-			/usr/bin/biglinux-dual-gpu-manager removeModules 2>&1 &
-			/usr/bin/biglinux-dual-gpu-manager off 2>&1 &
+			biglinux-gpu-manager mode-5
 		elif  grep 'bignvidia=6' /proc/cmdline; then
-			biglinux-gpu-manager mode-1
+			biglinux-gpu-manager mode-6
 		elif  grep 'bignvidia=7' /proc/cmdline; then
-			biglinux-gpu-manager mode-1
+			biglinux-gpu-manager mode-7
 		elif  grep 'bignvidia=8' /proc/cmdline; then
-			sed -i 's|nvidia-drm modeset=0|nvidia-drm modeset=1|g' /usr/lib/python*/site-packages/envycontrol.py
-			biglinux-gpu-manager mode-1
+			biglinux-gpu-manager mode-8
+		elif  grep 'bignvidia=9' /proc/cmdline; then
+			biglinux-gpu-manager mode-9
+		elif  grep 'bignvidia=10' /proc/cmdline; then
+			biglinux-gpu-manager mode-10
+		elif  grep 'bignvidia=11' /proc/cmdline; then
+			biglinux-gpu-manager mode-11
+		elif  grep 'bignvidia=12' /proc/cmdline; then
+			biglinux-gpu-manager mode-12
+		elif  grep 'bignvidia=13' /proc/cmdline; then
+			biglinux-gpu-manager mode-13
+		elif  grep 'bignvidia=14' /proc/cmdline; then
+			biglinux-gpu-manager mode-14
+		elif  grep 'bignvidia=15' /proc/cmdline; then
+			biglinux-gpu-manager mode-15
+		elif  grep 'bignvidia=16' /proc/cmdline; then
+			biglinux-gpu-manager mode-16
 		else
 			biglinux-gpu-manager
 		fi
