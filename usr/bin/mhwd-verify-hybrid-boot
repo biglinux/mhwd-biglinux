@@ -2,7 +2,7 @@
 
 # verify if switcheroo is enabled
 if ! systemctl -q is-enabled switcheroo-control; then
-	vgaList=$(lspci | grep -iE "VGA|3D")
+	vgaList=$(lspci | grep -iE "VGA|3D|Display")
 	if [[ $(echo $vgaList | grep -i nvidia) ]] && [[ $(echo "$vgaList" | wc -l) > 1 ]]; then
 		if grep 'bignvidia=1' /proc/cmdline; then
 			sed -i 's|nvidia-drm modeset=1|nvidia-drm modeset=0|g' /usr/lib/python*/site-packages/envycontrol.py
@@ -64,7 +64,8 @@ if ! systemctl -q is-enabled switcheroo-control; then
 	</application>
 	</device>' > /etc/drirc
 	
-	elif grep -Eiq '(VGA|3d).*(radeon|amd|ati)' <(lspci); then
+# 	elif grep -Eiq '(VGA|3d).*(radeon|amd|ati)' <(lspci); then
+	elif [[ $(echo $vgaList | grep -Ei '(VGA|3D|Display).*(radeon|amd|ati)') ]] && [[ $(echo "$vgaList" | wc -l) > 1 ]]; then
 		systemctl enable --now switcheroo-control
 	fi
 fi
