@@ -35,9 +35,6 @@ fi
 # Not try in in obsolete kernel
 sed -i 's#KERNELS=$(pacman -Qqs .*linux-xanmod-lts$")#KERNELS=$(pacman -Qqs "^linux[0-9][0-9]?([0-9])$|^linux-xanmod$|^linux-xanmod-lts$" | LANG=C xargs pacman -Si 2>/dev/null | grep ^Name | sed '\''s|.*: ||g'\'')#' /var/lib/mhwd/scripts/mhwd
 
-# Change mkinitcpio
-sed -i 's|MODULES="crc32c-intel"|MODULES=(nvidia? nvidia_modeset? nvidia_uvm? nvidia_drm?)|g' /etc/mkinitcpio.conf
-
 # Folder with scripts
 cd /var/lib/mhwd/db/pci/graphic_drivers/
 
@@ -54,11 +51,11 @@ for folder in $Folders; do
     fi
 done
 
-if [[ -e /etc/udev/rules.d/80-nvidia-pm.rules ]]; then
-    if grep -q 'ACTION=="add", SUBSYSTEM=="pci", ATTR{vendor}=="0x10de", ATTR{class}=="0x040300", ATTR{remove}="1"' /etc/udev/rules.d/80-nvidia-pm.rules; then
-        rm -f /etc/udev/rules.d/80-nvidia-pm.rules
-    fi
-fi
+# if [[ -e /etc/udev/rules.d/80-nvidia-pm.rules ]]; then
+#     if grep -q 'ACTION=="add", SUBSYSTEM=="pci", ATTR{vendor}=="0x10de", ATTR{class}=="0x040300", ATTR{remove}="1"' /etc/udev/rules.d/80-nvidia-pm.rules; then
+#         rm -f /etc/udev/rules.d/80-nvidia-pm.rules
+#     fi
+# fi
 
 
 # if [[ $(lspci | grep -iE "VGA|3D" | wc -l) > 1 && -n $(lsmod | grep nvidia_drm) ]]; then
