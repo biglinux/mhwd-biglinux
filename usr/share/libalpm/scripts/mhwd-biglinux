@@ -33,7 +33,7 @@ if ! grep -q linux-xanmod /usr/bin/mhwd-kernel; then
 fi
 
 # Not try in in obsolete kernel
-sed -i 's#KERNELS=$(pacman -Qqs .*linux-xanmod-lts$")#KERNELS=$(pacman -Qqs "^linux[0-9][0-9]?([0-9])$|^linux-xanmod$|^linux-xanmod-lts$" | LANG=C xargs pacman -Si 2>/dev/null | grep ^Name | sed '\''s|.*: ||g'\'')#' /var/lib/mhwd/scripts/mhwd
+sed -i 's#KERNELS=$(pacman -Qqs .*linux-xanmod-lts$")#KERNELS=$(pacman -Qqs "^linux[0-9][0-9]?([0-9])$|^linux-xanmod$|^linux-xanmod-lts$")#' /var/lib/mhwd/scripts/mhwd
 
 # Dont stop if fail to remove package ( Solve problem to install with conky package on iso )
 sed -i '360s/exit 1/exit 0/' /var/lib/mhwd/scripts/mhwd
