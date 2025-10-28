@@ -27,15 +27,15 @@ if [[ -e /etc/biglinux-gpu-mode ]]; then
 fi
 
 
-if echo "$devices" | grep -qi "VGA.*intel"; then
+if echo "$devices" | grep -qiw "VGA.*intel"; then
     gpuIntel=true
 fi
 
-if echo "$devices" | grep -qiE "(VGA|3d).*nvidia"; then
+if echo "$devices" | grep -qiEw "(VGA|3d).*nvidia"; then
     gpuNvidia=true
 fi
 
-if echo "$devices" | grep -qiE "VGA.*(AMD|ATI)"; then
+if echo "$devices" | grep -qiEw "VGA.*(AMD|ATI)"; then
     gpuAmd=true
 fi
 
