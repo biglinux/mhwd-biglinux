@@ -1,5 +1,10 @@
 #!/usr/bin/env bash
 
+#-------------------------------------------------------------------------------
+# Fix video device permission, added in 2026/01/28 to fix nvidia proprietary driver
+#-------------------------------------------------------------------------------
+sudo chmod 666 /dev/dri/renderD*
+
 # verify if switcheroo is enabled
 if ! systemctl -q is-enabled switcheroo-control; then
 	vgaList=$(lspci | grep -iE "VGA|3D|Display")
