@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
 
 #-------------------------------------------------------------------------------
-# Fix video device permission, added in 2026/01/28 to fix nvidia proprietary driver
+# Fix video device permission in live mode, added in 2026/01/28 to fix nvidia proprietary driver
 #-------------------------------------------------------------------------------
-sudo chmod 666 /dev/dri/renderD*
+if [ -e "/livefs-pkgs.txt" ]; then
+	sudo chmod 666 /dev/dri/renderD*
+fi
 
 # verify if switcheroo is enabled
 if ! systemctl -q is-enabled switcheroo-control; then
