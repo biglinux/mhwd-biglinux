@@ -1,0 +1,13 @@
+[Unit]
+Description=Configure NVIDIA Hybrid GPU in Live Mode
+ConditionPathExists=/livefs-pkgs.txt
+Before=display-manager.service gdm.service sddm.service lightdm.service
+After=systemd-modules-load.service systemd-udevd.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/bin/mhwd-nvidia-hybrid-live
+
+[Install]
+WantedBy=graphical.target
