@@ -24,6 +24,21 @@
 #  THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 
+# Temporarily adds support for the nvidia 580 driver until it is directly available in the mhwd-db package
+if ! [[ -e /var/lib/mhwd/db/pci/graphic_drivers/nvidia-580xx ]]; then
+    if ! [[ -e /var/lib/mhwd/db/pci/graphic_drivers/nvidia-580xx-big ]]; then
+        cp -R /var/lib/mhwd/db/pci/graphic_drivers/nvidia-575xx /var/lib/mhwd/db/pci/graphic_drivers/nvidia-580xx-big
+        cp -R /var/lib/mhwd/db/pci/graphic_drivers/hybrid-amd-nvidia-575xx-prime /var/lib/mhwd/db/pci/graphic_drivers/hybrid-amd-nvidia-580xx-prime-big
+        cp -R /var/lib/mhwd/db/pci/graphic_drivers/hybrid-intel-nvidia-575xx-prime /var/lib/mhwd/db/pci/graphic_drivers/hybrid-intel-nvidia-580xx-prime-big
+        
+        sed -i 's|575|580|g' /var/lib/mhwd/db/pci/graphic_drivers/nvidia-580xx-big/MHWDCONFIG /var/lib/mhwd/db/pci/graphic_drivers/hybrid-amd-nvidia-580xx-prime-big/MHWDCONFIG /var/lib/mhwd/db/pci/graphic_drivers/hybrid-intel-nvidia-580xx-prime-big/MHWDCONFIG
+    else
+        rm -Rf /var/lib/mhwd/db/pci/graphic_drivers/nvidia-580xx-big /var/lib/mhwd/db/pci/graphic_drivers/hybrid-amd-nvidia-580xx-prime-big /var/lib/mhwd/db/pci/graphic_drivers/hybrid-intel-nvidia-580xx-prime-big
+    fi
+fi
+
+
+
 # Add xanmod in mhwd-kernel
 if ! grep -q linux-xanmod /usr/bin/mhwd-kernel; then
     sed -i 's/\^linux\[0-9]\[0-9]?(\[0-9])\$/^linux[0-9][0-9]?([0-9])$|^linux-xanmod$|^linux-xanmod-lts$/g' /var/lib/mhwd/scripts/mhwd
