@@ -1,0 +1,119 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+#-------------------------------------------------------------------------------
+# mhwd-nvidia-hybrid-live
+# Configure NVIDIA hybrid GPU (Intel/NVIDIA) in live boot environment
+# Part of mhwd-biglinux package
+#-------------------------------------------------------------------------------
+
+LOG_TAG="mhwd-nvidia-hybrid-live"
+
+log_info() {
+    echo "${LOG_TAG}: $1"
+}
+
+log_error() {
+    echo "${LOG_TAG}: ERROR: $1" >&2
+}
+
+# Only run in live mode
+if [[ ! -e /livefs-pkgs.txt ]]; then
+    log_info "Not in live mode, exiting"
+    exit 0
+fi
+
+# Detect GPUs
+vga_list=$(lspci 2>/dev/null | grep -iE "VGA|3D|Display" || true)
+
+has_intel=false
+has_nvidia=false
+
+if echo "$vga_list" | grep -qi intel; then
+    has_intel=true
+fi
+
+if echo "$vga_list" | grep -qi nvidia; then
+    has_nvidia=true
+fi
+
+# Only proceed for hybrid Intel/NVIDIA systems
+if ! $has_intel || ! $has_nvidia; then
+    log_info "Not a hybrid Intel/NVIDIA system, exiting"
+    exit 0
+fi
+
+log_info "Hybrid Intel/NVIDIA GPU detected"
+log_info "Intel: $(echo "$vga_list" | grep -i intel)"
+log_info "NVIDIA: $(echo "$vga_list" | grep -i nvidia)"
+
+# Check if nvidia module is already loaded
+if lsmod | grep -q '^nvidia '; then
+    log_info "NVIDIA module already loaded, skipping installation"
+else
+    # Install hybrid driver via mhwd if available
+    if command -v mhwd >/dev/null 2>&1; then
+        # Check if a hybrid intel-nvidia configuration is available
+        if mhwd -la 2>/dev/null | grep -q 'hybrid-intel-nvidia.*prime'; then
+            log_info "Installing NVIDIA hybrid driver via mhwd"
+            if mhwd -a pci nonfree 0300 2>&1; then
+                log_info "NVIDIA hybrid driver installed successfully via mhwd"
+            else
+                log_error "mhwd auto-install failed, trying manual modprobe"
+                modprobe nvidia-drm 2>/dev/null || true
+                modprobe nvidia-modeset 2>/dev/null || true
+                modprobe nvidia-uvm 2>/dev/null || true
+            fi
+        else
+            log_info "No hybrid-intel-nvidia-prime config available in mhwd"
+            modprobe nvidia-drm 2>/dev/null || true
+        fi
+    else
+        log_info "mhwd not available, trying manual modprobe"
+        modprobe nvidia-drm 2>/dev/null || true
+    fi
+fi
+
+# Ensure modprobe configuration exists
+if [[ ! -f /etc/modprobe.d/nvidia.conf ]]; then
+    echo "options nvidia-drm modeset=1" > /etc/modprobe.d/nvidia.conf
+    log_info "Created /etc/modprobe.d/nvidia.conf with modeset=1"
+fi
+
+# Fix DRI device permissions for live session
+if [[ -e /dev/dri/renderD128 ]]; then
+    chmod 666 /dev/dri/renderD* 2>/dev/null || true
+    log_info "Fixed DRI device permissions"
+fi
+
+# Enable and start switcheroo-control
+if command -v switcherooctl >/dev/null 2>&1 || [[ -f /usr/lib/systemd/system/switcheroo-control.service ]]; then
+    if ! systemctl -q is-active switcheroo-control 2>/dev/null; then
+        systemctl enable --now switcheroo-control 2>/dev/null || true
+        log_info "switcheroo-control enabled and started"
+    fi
+fi
+
+# Create drirc for performance
+if [[ ! -f /etc/drirc ]]; then
+    cat > /etc/drirc <<'DRIRC'
+<device screen="0" driver="dri2">
+    <application name="Default">
+        <option name="vblank_mode" value="0"/>
+    </application>
+</device>
+DRIRC
+    log_info "Created /etc/drirc"
+fi
+
+# Verify result
+if lsmod | grep -q '^nvidia '; then
+    log_info "SUCCESS: NVIDIA module is loaded"
+    if command -v nvidia-smi >/dev/null 2>&1; then
+        log_info "nvidia-smi available: $(nvidia-smi --query-gpu=name --format=csv,noheader 2>/dev/null || echo 'query failed')"
+    fi
+else
+    log_info "WARNING: NVIDIA module could not be loaded. System will use nouveau/modesetting"
+fi
+
+exit 0

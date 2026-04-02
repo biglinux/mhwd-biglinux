@@ -1,61 +1,47 @@
 #!/usr/bin/env bash
 
 #-------------------------------------------------------------------------------
-# Fix video device permission in live mode, added in 2026/01/28 to fix nvidia proprietary driver
+# mhwd-verify-hybrid-boot
+# Verify and configure hybrid GPU setup during boot
+# Part of mhwd-biglinux package
 #-------------------------------------------------------------------------------
-if [ -e "/livefs-pkgs.txt" ]; then
-	sudo chmod 666 /dev/dri/renderD*
+
+# Fix video device permission in live mode
+if [[ -e /livefs-pkgs.txt ]]; then
+	chmod 666 /dev/dri/renderD* 2>/dev/null || true
 fi
 
-# verify if switcheroo is enabled
-if ! systemctl -q is-enabled switcheroo-control; then
-	vgaList=$(lspci | grep -iE "VGA|3D|Display")
-	if [[ $(echo $vgaList | grep -i nvidia) ]] && [[ $(echo "$vgaList" | wc -l) > 1 ]]; then
-		if grep 'bignvidia=1' /proc/cmdline; then
-			biglinux-gpu-manager mode-1
-		elif  grep 'bignvidia=2' /proc/cmdline; then
-			biglinux-gpu-manager mode-2
-		elif  grep 'bignvidia=3' /proc/cmdline; then
-			biglinux-gpu-manager mode-3
-		elif  grep 'bignvidia=4' /proc/cmdline; then
-			biglinux-gpu-manager mode-4
-		elif  grep 'bignvidia=5' /proc/cmdline; then
-			biglinux-gpu-manager mode-5
-		elif  grep 'bignvidia=6' /proc/cmdline; then
-			biglinux-gpu-manager mode-6
-		elif  grep 'bignvidia=7' /proc/cmdline; then
-			biglinux-gpu-manager mode-7
-		elif  grep 'bignvidia=8' /proc/cmdline; then
-			biglinux-gpu-manager mode-8
-		elif  grep 'bignvidia=9' /proc/cmdline; then
-			biglinux-gpu-manager mode-9
-		elif  grep 'bignvidia=10' /proc/cmdline; then
-			biglinux-gpu-manager mode-10
-		elif  grep 'bignvidia=11' /proc/cmdline; then
-			biglinux-gpu-manager mode-11
-		elif  grep 'bignvidia=12' /proc/cmdline; then
-			biglinux-gpu-manager mode-12
-		elif  grep 'bignvidia=13' /proc/cmdline; then
-			biglinux-gpu-manager mode-13
-		elif  grep 'bignvidia=14' /proc/cmdline; then
-			biglinux-gpu-manager mode-14
-		elif  grep 'bignvidia=15' /proc/cmdline; then
-			biglinux-gpu-manager mode-15
-		elif  grep 'bignvidia=16' /proc/cmdline; then
-			biglinux-gpu-manager mode-16
+# Verify if switcheroo is enabled
+if ! systemctl -q is-enabled switcheroo-control 2>/dev/null; then
+	vgaList=$(lspci 2>/dev/null | grep -iE "VGA|3D|Display" || true)
+	vgaCount=$(echo "$vgaList" | wc -l)
+
+	if echo "$vgaList" | grep -qi nvidia && [[ "$vgaCount" -gt 1 ]]; then
+		# Parse bignvidia= mode from kernel cmdline
+		bignvidia_mode=""
+		if grep -qoP 'bignvidia=\K[0-9]+' /proc/cmdline 2>/dev/null; then
+			bignvidia_mode=$(grep -oP 'bignvidia=\K[0-9]+' /proc/cmdline)
+		fi
+
+		if [[ -n "$bignvidia_mode" ]] && [[ "$bignvidia_mode" -ge 1 ]] && [[ "$bignvidia_mode" -le 16 ]]; then
+			biglinux-gpu-manager "mode-${bignvidia_mode}"
 		else
 			biglinux-gpu-manager
 		fi
 
-	systemctl enable --now switcheroo-control
-	echo '<device screen="0" driver="dri2">
+		systemctl enable --now switcheroo-control 2>/dev/null || true
+
+		if [[ ! -f /etc/drirc ]]; then
+			cat > /etc/drirc <<'DRIRC'
+<device screen="0" driver="dri2">
 	<application name="Default">
 		<option name="vblank_mode" value="0"/>
 	</application>
-	</device>' > /etc/drirc
-	
-# 	elif grep -Eiq '(VGA|3d).*(radeon|amd|ati)' <(lspci); then
-	elif [[ $(echo $vgaList | grep -Ei '(VGA|3D|Display).*(radeon|amd|ati)') ]] && [[ $(echo "$vgaList" | wc -l) > 1 ]]; then
-		systemctl enable --now switcheroo-control
+</device>
+DRIRC
+		fi
+
+	elif echo "$vgaList" | grep -Eiq '(VGA|3D|Display).*(radeon|amd|ati)' && [[ "$vgaCount" -gt 1 ]]; then
+		systemctl enable --now switcheroo-control 2>/dev/null || true
 	fi
 fi

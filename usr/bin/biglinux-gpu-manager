@@ -40,90 +40,106 @@ if echo "$devices" | grep -qiEw "VGA.*(AMD|ATI)"; then
 fi
 
 function removeModesetGrub {
-    if grep -q '.modeset=' /etc/default/grub; then
-        bbv_change_variable remove "/etc/default/grub" "GRUB_CMDLINE_LINUX_DEFAULT" "nvidia-drm.modeset"
-        bbv_change_variable remove "/etc/default/grub" "GRUB_CMDLINE_LINUX_DEFAULT" "i915.modeset"
-        bbv_change_variable remove "/etc/default/grub" "GRUB_CMDLINE_LINUX_DEFAULT" "nouveau.modeset"
-        bbv_change_variable remove "/etc/default/grub" "GRUB_CMDLINE_LINUX_DEFAULT" "radeon.modeset"
-        bbv_change_variable remove "/etc/default/grub" "GRUB_CMDLINE_LINUX_DEFAULT" "amdgpu.modeset"
+    if [[ -f /etc/default/grub ]] && grep -q '.modeset=' /etc/default/grub; then
+        sed -i 's/ *nvidia-drm\.modeset=[0-9]*//g' /etc/default/grub
+        sed -i 's/ *i915\.modeset=[0-9]*//g' /etc/default/grub
+        sed -i 's/ *nouveau\.modeset=[0-9]*//g' /etc/default/grub
+        sed -i 's/ *radeon\.modeset=[0-9]*//g' /etc/default/grub
+        sed -i 's/ *amdgpu\.modeset=[0-9]*//g' /etc/default/grub
         updateGrub=true
         echo 'Remove modeset in grub'
     fi
 }
 
 function addBlacklistNouveauGrub {
+    if [[ ! -f /etc/default/grub ]]; then
+        return
+    fi
     if ! grep -q 'rd.driver.blacklist=nouveau' /etc/default/grub; then
-        bbv_change_variable add "/etc/default/grub" "GRUB_CMDLINE_LINUX_DEFAULT" "rd.driver.blacklist=nouveau"
+        sed -i 's/\(GRUB_CMDLINE_LINUX_DEFAULT="[^"]*\)/\1 rd.driver.blacklist=nouveau/' /etc/default/grub
         updateGrub=true
     fi
     if ! grep -q 'modprobe.blacklist=nouveau' /etc/default/grub; then
-        bbv_change_variable add "/etc/default/grub" "GRUB_CMDLINE_LINUX_DEFAULT" "modprobe.blacklist=nouveau"
+        sed -i 's/\(GRUB_CMDLINE_LINUX_DEFAULT="[^"]*\)/\1 modprobe.blacklist=nouveau/' /etc/default/grub
         updateGrub=true
     fi
 }
 
 function removeBlacklistNouveauGrub {
-
+    if [[ ! -f /etc/default/grub ]]; then
+        return
+    fi
     if grep -q 'rd.driver.blacklist=nouveau' /etc/default/grub; then
-        bbv_change_variable remove "/etc/default/grub" "GRUB_CMDLINE_LINUX_DEFAULT" "rd.driver.blacklist=nouveau"
+        sed -i 's/ *rd\.driver\.blacklist=nouveau//g' /etc/default/grub
         updateGrub=true
     fi
-    if ! grep -q 'modprobe.blacklist=nouveau' /etc/default/grub; then
-        bbv_change_variable remove "/etc/default/grub" "GRUB_CMDLINE_LINUX_DEFAULT" "modprobe.blacklist=nouveau"
+    if grep -q 'modprobe.blacklist=nouveau' /etc/default/grub; then
+        sed -i 's/ *modprobe\.blacklist=nouveau//g' /etc/default/grub
         updateGrub=true
     fi
 }
 
 function useIntelDriverInXorgForIntel {
-    if grep -q 'Driver "modesetting"' /usr/share/X11/xorg.conf.d/10-intel-nvidia-drm-outputclass.conf; then
-        sed -i 's|Driver "modesetting"|Driver "intel"|g' /usr/share/X11/xorg.conf.d/10-intel-nvidia-drm-outputclass.conf
+    local xorg_conf="/usr/share/X11/xorg.conf.d/10-intel-nvidia-drm-outputclass.conf"
+    if [[ -f "$xorg_conf" ]] && grep -q 'Driver "modesetting"' "$xorg_conf"; then
+        sed -i 's|Driver "modesetting"|Driver "intel"|g' "$xorg_conf"
     fi
 }
 
 function useModesettingDriverInXorgForIntel {
-    if grep -q 'Driver "intel"' /usr/share/X11/xorg.conf.d/10-intel-nvidia-drm-outputclass.conf; then
-        sed -i 's|Driver "intel"|Driver "modesetting"|g' /usr/share/X11/xorg.conf.d/10-intel-nvidia-drm-outputclass.conf
+    local xorg_conf="/usr/share/X11/xorg.conf.d/10-intel-nvidia-drm-outputclass.conf"
+    if [[ -f "$xorg_conf" ]] && grep -q 'Driver "intel"' "$xorg_conf"; then
+        sed -i 's|Driver "intel"|Driver "modesetting"|g' "$xorg_conf"
     fi
 }
 
 function initcpioEnableModesetNvidia {
-    if grep -q 'options *nvidia-drm *modeset=' /etc/modprobe.d/nvidia.conf; then
-        if grep '.*#.*options *nvidia-drm modeset=' /etc/modprobe.d/nvidia.conf; then
-            echo 'options nvidia-drm modeset=1' >> /etc/modprobe.d/nvidia.conf
+    local nvidia_conf="/etc/modprobe.d/nvidia.conf"
+    if [[ -f "$nvidia_conf" ]] && grep -q 'options *nvidia-drm *modeset=' "$nvidia_conf"; then
+        if grep -q '.*#.*options *nvidia-drm modeset=' "$nvidia_conf"; then
+            echo 'options nvidia-drm modeset=1' >> "$nvidia_conf"
         else
-            sed -i 's|nvidia-drm *modeset=[01]|nvidia-drm modeset=1|g' /etc/modprobe.d/nvidia.conf
+            sed -i 's|nvidia-drm *modeset=[01]|nvidia-drm modeset=1|g' "$nvidia_conf"
         fi
     else
-        echo 'options nvidia-drm modeset=1' >> /etc/modprobe.d/nvidia.conf
+        mkdir -p /etc/modprobe.d
+        echo 'options nvidia-drm modeset=1' >> "$nvidia_conf"
     fi
 }
 
 function initcpioDisableModesetNvidia {
-    if grep -q 'options *nvidia-drm *modeset=' /etc/modprobe.d/nvidia.conf; then
-        if grep '.*#.*options *nvidia-drm modeset=' /etc/modprobe.d/nvidia.conf; then
-            echo 'options nvidia-drm modeset=0' >> /etc/modprobe.d/nvidia.conf
+    local nvidia_conf="/etc/modprobe.d/nvidia.conf"
+    if [[ -f "$nvidia_conf" ]] && grep -q 'options *nvidia-drm *modeset=' "$nvidia_conf"; then
+        if grep -q '.*#.*options *nvidia-drm modeset=' "$nvidia_conf"; then
+            echo 'options nvidia-drm modeset=0' >> "$nvidia_conf"
         else
-            sed -i 's|nvidia-drm *modeset=[01]|nvidia-drm modeset=0|g' /etc/modprobe.d/nvidia.conf
+            sed -i 's|nvidia-drm *modeset=[01]|nvidia-drm modeset=0|g' "$nvidia_conf"
         fi
     else
-        echo 'options nvidia-drm modeset=0' >> /etc/modprobe.d/nvidia.conf
+        mkdir -p /etc/modprobe.d
+        echo 'options nvidia-drm modeset=0' >> "$nvidia_conf"
     fi
 }
 
 function initcpioEnablePageAttributeTable {
-    if grep -q 'options NVreg_UsePageAttributeTable=' /etc/modprobe.d/nvidia.conf; then
-        if grep '.*#.*options *NVreg_UsePageAttributeTable=' /etc/modprobe.d/nvidia.conf; then
-            echo 'options nvidia NVreg_UsePageAttributeTable=1 NVreg_InitializeSystemMemoryAllocations=0' >> /etc/modprobe.d/nvidia.conf
+    local nvidia_conf="/etc/modprobe.d/nvidia.conf"
+    mkdir -p /etc/modprobe.d
+    if [[ -f "$nvidia_conf" ]] && grep -q 'options NVreg_UsePageAttributeTable=' "$nvidia_conf"; then
+        if grep -q '.*#.*options *NVreg_UsePageAttributeTable=' "$nvidia_conf"; then
+            echo 'options nvidia NVreg_UsePageAttributeTable=1 NVreg_InitializeSystemMemoryAllocations=0' >> "$nvidia_conf"
         else
-            sed -i 's|NVreg_UsePageAttributeTable=[01]|NVreg_UsePageAttributeTable=1|g;s|NVreg_InitializeSystemMemoryAllocations=[01]|NVreg_InitializeSystemMemoryAllocations=0|g' /etc/modprobe.d/nvidia.conf
+            sed -i 's|NVreg_UsePageAttributeTable=[01]|NVreg_UsePageAttributeTable=1|g;s|NVreg_InitializeSystemMemoryAllocations=[01]|NVreg_InitializeSystemMemoryAllocations=0|g' "$nvidia_conf"
         fi
     else
-        echo 'options nvidia NVreg_UsePageAttributeTable=1 NVreg_InitializeSystemMemoryAllocations=0' >> /etc/modprobe.d/nvidia.conf
+        echo 'options nvidia NVreg_UsePageAttributeTable=1 NVreg_InitializeSystemMemoryAllocations=0' >> "$nvidia_conf"
     fi
 }
 
 function initcpioRemovePageAttributeTable {
-    sed 's|.*options nvidia NVreg_UsePageAttributeTable=[01] NVreg_InitializeSystemMemoryAllocations=[01].*||g' /etc/modprobe.d/nvidia.conf
+    local nvidia_conf="/etc/modprobe.d/nvidia.conf"
+    if [[ -f "$nvidia_conf" ]]; then
+        sed -i 's|.*options nvidia NVreg_UsePageAttributeTable=[01] NVreg_InitializeSystemMemoryAllocations=[01].*||g' "$nvidia_conf"
+    fi
 }
 
 function enableSwitcheroo {
@@ -136,24 +152,52 @@ function enableSwitcheroo {
 }
 
 function autoInstallDriver {
-    mhwd -a pci nonfree 0300
+    if command -v mhwd >/dev/null 2>&1; then
+        mhwd -a pci nonfree 0300 || echo 'mhwd auto-install failed' >&2
+    else
+        echo 'mhwd not available' >&2
+    fi
 }
 
-function addInSddm {
-xrandrNvidiaId=$(xrandr --listproviders | grep -i nvidia | sed -r 's/.*providers: ([0-9]*) .*/\1/')
-if [[ $xrandrNvidiaId = 1 ]]; then
-    xrandrIntelId=0
-elif [[ $xrandrNvidiaId = 0 ]]; then
-    xrandrIntelId=1
-fi
+function addInDisplayManager {
+    # Get xrandr provider IDs (may fail if no display is available)
+    local xrandrNvidiaId
+    xrandrNvidiaId=$(xrandr --listproviders 2>/dev/null | grep -i nvidia | sed -r 's/.*providers: ([0-9]*) .*/\1/' || true)
 
-if [[ "$useGpu" = "Intel" ]]; then
-    commandToAddInSddm=$(echo "xrandr --setprovideroutputsource $xrandrIntelId $xrandrNvidiaId")
-elif [[ "$useGpu" = "Nvidia" ]]; then
-    commandToAddInSddm=$(echo "xrandr --setprovideroutputsource $xrandrNvidiaId $xrandrIntelId")
-fi
-    sed -i 's|.*xrandr *--setprovideroutputsource.*||g' /usr/share/sddm/scripts/Xsetup
-    echo "$commandToAddInSddm" >> /usr/share/sddm/scripts/Xsetup
+    if [[ -z "$xrandrNvidiaId" ]]; then
+        echo 'xrandr providers not available (no display), skipping DM configuration' >&2
+        return
+    fi
+
+    local xrandrIntelId
+    if [[ "$xrandrNvidiaId" = 1 ]]; then
+        xrandrIntelId=0
+    elif [[ "$xrandrNvidiaId" = 0 ]]; then
+        xrandrIntelId=1
+    else
+        return
+    fi
+
+    local commandToAdd
+    if [[ "$useGpu" = "Intel" ]]; then
+        commandToAdd="xrandr --setprovideroutputsource $xrandrIntelId $xrandrNvidiaId"
+    elif [[ "$useGpu" = "Nvidia" ]]; then
+        commandToAdd="xrandr --setprovideroutputsource $xrandrNvidiaId $xrandrIntelId"
+    fi
+
+    # SDDM
+    if [[ -f /usr/share/sddm/scripts/Xsetup ]]; then
+        sed -i 's|.*xrandr *--setprovideroutputsource.*||g' /usr/share/sddm/scripts/Xsetup
+        echo "$commandToAdd" >> /usr/share/sddm/scripts/Xsetup
+    fi
+
+    # LightDM
+    if [[ -f /etc/lightdm/lightdm.conf ]]; then
+        mkdir -p /etc/lightdm
+        echo "#!/bin/bash" > /etc/lightdm/display_setup.sh
+        echo "$commandToAdd" >> /etc/lightdm/display_setup.sh
+        chmod +x /etc/lightdm/display_setup.sh
+    fi
 }
 
 function installIntelXorgPkg {
@@ -176,7 +220,7 @@ if [[ $gpuIntel && $gpuNvidia && -z $biglinuxGpuMode || $gpuIntel && $gpuNvidia 
     addBlacklistNouveauGrub
     useIntelDriverInXorgForIntel
     enableSwitcheroo
-    useGpu=Intel addInSddm
+    useGpu=Intel addInDisplayManager
     if $updateGrub; then
         update-grub
     fi
@@ -195,7 +239,7 @@ elif [[ $gpuIntel && $gpuNvidia && "$1" = "mode-2" ]]; then
     addBlacklistNouveauGrub
     useIntelDriverInXorgForIntel
     enableSwitcheroo
-    useGpu=Intel addInSddm
+    useGpu=Intel addInDisplayManager
     if $updateGrub; then
         update-grub
     fi
@@ -213,7 +257,7 @@ elif [[ $gpuIntel && $gpuNvidia && "$1" = "mode-3" ]]; then
     addBlacklistNouveauGrub
     useModesettingDriverInXorgForIntel
     enableSwitcheroo
-    useGpu=Intel addInSddm
+    useGpu=Intel addInDisplayManager
     if $updateGrub; then
         update-grub
     fi
@@ -231,7 +275,7 @@ elif [[ $gpuIntel && $gpuNvidia && "$1" = "mode-4" ]]; then
     addBlacklistNouveauGrub
     useModesettingDriverInXorgForIntel
     enableSwitcheroo
-    useGpu=Intel addInSddm
+    useGpu=Intel addInDisplayManager
     if $updateGrub; then
         update-grub
     fi
@@ -249,7 +293,7 @@ elif [[ $gpuIntel && $gpuNvidia && "$1" = "mode-5" ]]; then
     addBlacklistNouveauGrub
     useModesettingDriverInXorgForIntel
     enableSwitcheroo
-    useGpu=Intel addInSddm
+    useGpu=Intel addInDisplayManager
     if $updateGrub; then
         update-grub
     fi
@@ -267,7 +311,7 @@ elif [[ $gpuIntel && $gpuNvidia && "$1" = "mode-6" ]]; then
     addBlacklistNouveauGrub
     useModesettingDriverInXorgForIntel
     enableSwitcheroo
-    useGpu=Intel addInSddm
+    useGpu=Intel addInDisplayManager
     if $updateGrub; then
         update-grub
     fi
@@ -286,7 +330,7 @@ elif [[ $gpuIntel && $gpuNvidia && "$1" = "mode-7" ]]; then
     installIntelXorgPkg
     useIntelDriverInXorgForIntel
     enableSwitcheroo
-    useGpu=Intel addInSddm
+    useGpu=Intel addInDisplayManager
     if $updateGrub; then
         update-grub
     fi
@@ -305,7 +349,7 @@ elif [[ $gpuIntel && $gpuNvidia && "$1" = "mode-8" ]]; then
     installIntelXorgPkg
     useIntelDriverInXorgForIntel
     enableSwitcheroo
-    useGpu=Intel addInSddm
+    useGpu=Intel addInDisplayManager
     if $updateGrub; then
         update-grub
     fi
@@ -329,7 +373,7 @@ elif [[ $gpuIntel && $gpuNvidia && "$1" = "mode-9" ]]; then
     addBlacklistNouveauGrub
     useIntelDriverInXorgForIntel
     enableSwitcheroo
-    useGpu=Nvidia addInSddm
+    useGpu=Nvidia addInDisplayManager
     if $updateGrub; then
         update-grub
     fi
@@ -348,7 +392,7 @@ elif [[ $gpuIntel && $gpuNvidia && "$1" = "mode-10" ]]; then
     addBlacklistNouveauGrub
     useIntelDriverInXorgForIntel
     enableSwitcheroo
-    useGpu=Nvidia addInSddm
+    useGpu=Nvidia addInDisplayManager
     if $updateGrub; then
         update-grub
     fi
@@ -366,7 +410,7 @@ elif [[ $gpuIntel && $gpuNvidia && "$1" = "mode-11" ]]; then
     addBlacklistNouveauGrub
     useModesettingDriverInXorgForIntel
     enableSwitcheroo
-    useGpu=Nvidia addInSddm
+    useGpu=Nvidia addInDisplayManager
     if $updateGrub; then
         update-grub
     fi
@@ -384,7 +428,7 @@ elif [[ $gpuIntel && $gpuNvidia && "$1" = "mode-12" ]]; then
     addBlacklistNouveauGrub
     useModesettingDriverInXorgForIntel
     enableSwitcheroo
-    useGpu=Nvidia addInSddm
+    useGpu=Nvidia addInDisplayManager
     if $updateGrub; then
         update-grub
     fi
@@ -402,7 +446,7 @@ elif [[ $gpuIntel && $gpuNvidia && "$1" = "mode-13" ]]; then
     addBlacklistNouveauGrub
     useModesettingDriverInXorgForIntel
     enableSwitcheroo
-    useGpu=Nvidia addInSddm
+    useGpu=Nvidia addInDisplayManager
     if $updateGrub; then
         update-grub
     fi
@@ -420,7 +464,7 @@ elif [[ $gpuIntel && $gpuNvidia && "$1" = "mode-14" ]]; then
     addBlacklistNouveauGrub
     useModesettingDriverInXorgForIntel
     enableSwitcheroo
-    useGpu=Nvidia addInSddm
+    useGpu=Nvidia addInDisplayManager
     if $updateGrub; then
         update-grub
     fi
@@ -439,7 +483,7 @@ elif [[ $gpuIntel && $gpuNvidia && "$1" = "mode-15" ]]; then
     installIntelXorgPkg
     useIntelDriverInXorgForIntel
     enableSwitcheroo
-    useGpu=Nvidia addInSddm
+    useGpu=Nvidia addInDisplayManager
     if $updateGrub; then
         update-grub
     fi
@@ -458,7 +502,7 @@ elif [[ $gpuIntel && $gpuNvidia && "$1" = "mode-16" ]]; then
     installIntelXorgPkg
     useIntelDriverInXorgForIntel
     enableSwitcheroo
-    useGpu=Nvidia addInSddm
+    useGpu=Nvidia addInDisplayManager
     if $updateGrub; then
         update-grub
     fi
