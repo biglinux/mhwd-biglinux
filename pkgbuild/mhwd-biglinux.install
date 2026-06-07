@@ -1,5 +1,33 @@
+# shellcheck shell=bash
 post_install() {
     systemctl enable nvidia-manager-verify
+    # NVIDIA suspend/resume/hibernate services are shipped and enabled by
+    # nvidia-utils' systemd preset, and the suspend modprobe options live in
+    # its /usr/lib/modprobe.d/nvidia-sleep.conf — nothing for us to add.
+}
+
+post_upgrade() {
+    post_install
+
+    # Clean up units removed in the dual-GPU refactor (RTD3 replaced them).
+    local unit
+    for unit in biglinux-dual-gpu-manager.service \
+                biglinux-dual-gpu-manager-after-display-manager.service; do
+        systemctl disable "$unit" 2>/dev/null || true
+    done
+
+    # Migrate the legacy numeric mode (1-8 = integrated/iGPU primary -> hybrid,
+    # 9-16 = NVIDIA primary -> nvidia) to the new mode names, then re-apply so
+    # the new drop-ins replace the old layout. Only hybrid laptops ever had a
+    # mode file, so this is a no-op elsewhere (and in the ISO build chroot).
+    local mode_file='/etc/biglinux-gpu-mode'
+    if [[ -s $mode_file ]]; then
+        case "$(<"$mode_file")" in
+        [1-8]) echo hybrid >"$mode_file" ;;
+        9 | 1[0-6]) echo nvidia >"$mode_file" ;;
+        esac
+        biglinux-gpu-manager "$(<"$mode_file")" 2>/dev/null || true
+    fi
 }
 
 pre_remove() {

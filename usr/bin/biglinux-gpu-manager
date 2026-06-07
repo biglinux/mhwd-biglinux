@@ -1,480 +1,155 @@
-#!/bin/bash
+#!/usr/bin/env bash
+#
+# biglinux-gpu-manager — slim hybrid-GPU mode switcher for BigLinux
+#
+# Usage: biglinux-gpu-manager [hybrid|nvidia|integrated]
+#
+# This is a THIN override layer on top of the mhwd PRIME profile
+# (video-hybrid-*-nvidia-prime). That profile already ships the complete,
+# correct modern setup when installed:
+#   - PRIME render offload Xorg config (/etc/X11/mhwd.d/nvidia.conf)
+#   - RTD3 udev rules (/etc/udev/rules.d/90-mhwd-prime-powermanagement.rules)
+#   - options nvidia NVreg_DynamicPowerManagement=0x02 (in /etc/modprobe.d/mhwd-gpu.conf)
+#   - nvidia-drm force-load (/etc/modules-load.d/mhwd-gpu.conf)
+#   - switcheroo-control / nvidia-prime as dependencies
+#   - open vs proprietary kernel module selection (nvidia-recommended-driver)
+# Suspend/resume options live in nvidia-utils' /usr/lib/modprobe.d/nvidia-sleep.conf
+# and the nvidia-{suspend,resume,hibernate}.service units (enabled by preset).
+#
+# So this tool only writes the DEVIATIONS from that hybrid baseline:
+#   hybrid      (default) Remove our overrides → the mhwd profile drives:
+#               iGPU displays, NVIDIA dGPU on demand via prime-run, RTD3 idle.
+#   nvidia      Keep the dGPU awake (RTD3 off) and make it the Xorg PrimaryGPU.
+#               On a muxless laptop under Wayland the internal panel stays on
+#               the iGPU, so this is mainly an Xorg effect.
+#   integrated  iGPU only: prevent the nvidia modules from loading at all
+#               (defeats the mhwd modules-load force-load). Best battery life.
+#
+# The override drop-in is named zz-* so it sorts AFTER mhwd-gpu.conf and wins
+# the modprobe merge for NVreg_DynamicPowerManagement. We never touch the
+# mhwd-owned files, nvidia-drm.modeset (driver/biglinux-improve-compatibility
+# default), or /etc/default/grub.
 
-# Usage just call script or call with mode, like:
+set -uo pipefail
 
-# biglinux-gpu.sh mode-1 Intel Xorg as Primary + Nvidia ModeSetting - PAT
-# biglinux-gpu.sh mode-2 Intel Xorg as Primary + Nvidia ModeSetting + PAT
-# biglinux-gpu.sh mode-3 Intel ModeSetting as Primary + Nvidia ModeSetting - PAT
-# biglinux-gpu.sh mode-4 Intel ModeSetting as Primary + Nvidia ModeSetting + PAT
-# biglinux-gpu.sh mode-5 Intel ModeSetting as Primary + Nvidia Xorg - PAT
-# biglinux-gpu.sh mode-6 Intel ModeSetting as Primary + Nvidia Xorg + PAT
-# biglinux-gpu.sh mode-7 Intel Xorg as Primary + Nvidia Xorg - PAT
-# biglinux-gpu.sh mode-8 Intel Xorg as Primary + Nvidia Xorg + PAT
+readonly MODE_FILE='/etc/biglinux-gpu-mode'
+readonly NVIDIA_MODE_CONF='/etc/modprobe.d/zz-biglinux-nvidia-mode.conf'
+readonly NVIDIA_PRIMARY_CONF='/etc/X11/xorg.conf.d/99-biglinux-nvidia-primary.conf'
 
-# biglinux-gpu.sh mode-9  Nvidia ModeSetting - PAT as Primary + Intel Xorg
-# biglinux-gpu.sh mode-10 Nvidia ModeSetting + PAT as Primary + Intel Xorg
-# biglinux-gpu.sh mode-11 Nvidia ModeSetting - PAT as Primary + Intel ModeSetting
-# biglinux-gpu.sh mode-12 Nvidia ModeSetting + PAT as Primary + Intel ModeSetting
-# biglinux-gpu.sh mode-13 Nvidia Xorg - PAT as Primary + Intel ModeSetting
-# biglinux-gpu.sh mode-14 Nvidia Xorg + PAT as Primary + Intel ModeSetting
-# biglinux-gpu.sh mode-15 Nvidia Xorg - PAT as Primary + Intel Xorg
-# biglinux-gpu.sh mode-16 Nvidia Xorg + PAT as Primary + Intel Xorg
+# --- hardware detection -------------------------------------------------------
+gpu_list="$(lspci 2>/dev/null | grep -iE 'VGA|3D|Display')"
 
-devices=$(lspci)
+has_nvidia=false
+grep -qiE 'NVIDIA' <<<"$gpu_list" && has_nvidia=true
 
-if [[ -e /etc/biglinux-gpu-mode ]]; then
-    biglinuxGpuMode=$(< /etc/biglinux-gpu-mode)
+has_igpu=false
+grep -qiE 'Intel|AMD|ATI' <<<"$gpu_list" && has_igpu=true
+
+# No NVIDIA dGPU: nothing for this tool to manage.
+if [[ $has_nvidia != true ]]; then
+    echo 'biglinux-gpu-manager: no NVIDIA dGPU detected; nothing to do.'
+    exit 0
 fi
 
+# --- helpers ------------------------------------------------------------------
+need_initramfs=false
 
-if echo "$devices" | grep -qiw "VGA.*intel"; then
-    gpuIntel=true
-fi
-
-if echo "$devices" | grep -qiEw "(VGA|3d).*nvidia"; then
-    gpuNvidia=true
-fi
-
-if echo "$devices" | grep -qiEw "VGA.*(AMD|ATI)"; then
-    gpuAmd=true
-fi
-
-function removeModesetGrub {
-    if grep -q '.modeset=' /etc/default/grub; then
-        bbv_change_variable remove "/etc/default/grub" "GRUB_CMDLINE_LINUX_DEFAULT" "nvidia-drm.modeset"
-        bbv_change_variable remove "/etc/default/grub" "GRUB_CMDLINE_LINUX_DEFAULT" "i915.modeset"
-        bbv_change_variable remove "/etc/default/grub" "GRUB_CMDLINE_LINUX_DEFAULT" "nouveau.modeset"
-        bbv_change_variable remove "/etc/default/grub" "GRUB_CMDLINE_LINUX_DEFAULT" "radeon.modeset"
-        bbv_change_variable remove "/etc/default/grub" "GRUB_CMDLINE_LINUX_DEFAULT" "amdgpu.modeset"
-        updateGrub=true
-        echo 'Remove modeset in grub'
-    fi
-}
-
-function addBlacklistNouveauGrub {
-    if ! grep -q 'rd.driver.blacklist=nouveau' /etc/default/grub; then
-        bbv_change_variable add "/etc/default/grub" "GRUB_CMDLINE_LINUX_DEFAULT" "rd.driver.blacklist=nouveau"
-        updateGrub=true
-    fi
-    if ! grep -q 'modprobe.blacklist=nouveau' /etc/default/grub; then
-        bbv_change_variable add "/etc/default/grub" "GRUB_CMDLINE_LINUX_DEFAULT" "modprobe.blacklist=nouveau"
-        updateGrub=true
-    fi
-}
-
-function removeBlacklistNouveauGrub {
-
-    if grep -q 'rd.driver.blacklist=nouveau' /etc/default/grub; then
-        bbv_change_variable remove "/etc/default/grub" "GRUB_CMDLINE_LINUX_DEFAULT" "rd.driver.blacklist=nouveau"
-        updateGrub=true
-    fi
-    if ! grep -q 'modprobe.blacklist=nouveau' /etc/default/grub; then
-        bbv_change_variable remove "/etc/default/grub" "GRUB_CMDLINE_LINUX_DEFAULT" "modprobe.blacklist=nouveau"
-        updateGrub=true
-    fi
-}
-
-function useIntelDriverInXorgForIntel {
-    if grep -q 'Driver "modesetting"' /usr/share/X11/xorg.conf.d/10-intel-nvidia-drm-outputclass.conf; then
-        sed -i 's|Driver "modesetting"|Driver "intel"|g' /usr/share/X11/xorg.conf.d/10-intel-nvidia-drm-outputclass.conf
-    fi
-}
-
-function useModesettingDriverInXorgForIntel {
-    if grep -q 'Driver "intel"' /usr/share/X11/xorg.conf.d/10-intel-nvidia-drm-outputclass.conf; then
-        sed -i 's|Driver "intel"|Driver "modesetting"|g' /usr/share/X11/xorg.conf.d/10-intel-nvidia-drm-outputclass.conf
-    fi
-}
-
-function initcpioEnableModesetNvidia {
-    if grep -q 'options *nvidia-drm *modeset=' /etc/modprobe.d/nvidia.conf; then
-        if grep '.*#.*options *nvidia-drm modeset=' /etc/modprobe.d/nvidia.conf; then
-            echo 'options nvidia-drm modeset=1' >> /etc/modprobe.d/nvidia.conf
-        else
-            sed -i 's|nvidia-drm *modeset=[01]|nvidia-drm modeset=1|g' /etc/modprobe.d/nvidia.conf
-        fi
-    else
-        echo 'options nvidia-drm modeset=1' >> /etc/modprobe.d/nvidia.conf
-    fi
-}
-
-function initcpioDisableModesetNvidia {
-    if grep -q 'options *nvidia-drm *modeset=' /etc/modprobe.d/nvidia.conf; then
-        if grep '.*#.*options *nvidia-drm modeset=' /etc/modprobe.d/nvidia.conf; then
-            echo 'options nvidia-drm modeset=0' >> /etc/modprobe.d/nvidia.conf
-        else
-            sed -i 's|nvidia-drm *modeset=[01]|nvidia-drm modeset=0|g' /etc/modprobe.d/nvidia.conf
-        fi
-    else
-        echo 'options nvidia-drm modeset=0' >> /etc/modprobe.d/nvidia.conf
-    fi
-}
-
-function initcpioEnablePageAttributeTable {
-    if grep -q 'options NVreg_UsePageAttributeTable=' /etc/modprobe.d/nvidia.conf; then
-        if grep '.*#.*options *NVreg_UsePageAttributeTable=' /etc/modprobe.d/nvidia.conf; then
-            echo 'options nvidia NVreg_UsePageAttributeTable=1 NVreg_InitializeSystemMemoryAllocations=0' >> /etc/modprobe.d/nvidia.conf
-        else
-            sed -i 's|NVreg_UsePageAttributeTable=[01]|NVreg_UsePageAttributeTable=1|g;s|NVreg_InitializeSystemMemoryAllocations=[01]|NVreg_InitializeSystemMemoryAllocations=0|g' /etc/modprobe.d/nvidia.conf
-        fi
-    else
-        echo 'options nvidia NVreg_UsePageAttributeTable=1 NVreg_InitializeSystemMemoryAllocations=0' >> /etc/modprobe.d/nvidia.conf
-    fi
-}
-
-function initcpioRemovePageAttributeTable {
-    sed 's|.*options nvidia NVreg_UsePageAttributeTable=[01] NVreg_InitializeSystemMemoryAllocations=[01].*||g' /etc/modprobe.d/nvidia.conf
-}
-
-function enableSwitcheroo {
-    if [[ -z "/var/lib/pacman/local/switcheroo-control-*" ]]; then
-        pacman -Sy --noconfirm switcheroo-control
-    fi
-    if [[ "$(systemctl is-enabled switcheroo-control)" = "disabled" ]]; then
+enable_switcheroo() {
+    # switcheroo-control is a hard dependency, so it is always installed. The
+    # mhwd profile pulls it too, but enabling the service is still our job.
+    if ! systemctl -q is-enabled switcheroo-control 2>/dev/null; then
         systemctl enable --now switcheroo-control
     fi
 }
 
-function autoInstallDriver {
-    mhwd -a pci nonfree 0300
+# Write $1 from stdin only when the content differs. Exit 0 when it changed.
+write_if_changed() {
+    local path="$1" content
+    content="$(cat)"
+    if [[ -e $path && "$(<"$path")" == "$content" ]]; then
+        return 1
+    fi
+    install -d "$(dirname "$path")"
+    printf '%s\n' "$content" >"$path"
+    return 0
 }
 
-function addInSddm {
-xrandrNvidiaId=$(xrandr --listproviders | grep -i nvidia | sed -r 's/.*providers: ([0-9]*) .*/\1/')
-if [[ $xrandrNvidiaId = 1 ]]; then
-    xrandrIntelId=0
-elif [[ $xrandrNvidiaId = 0 ]]; then
-    xrandrIntelId=1
-fi
-
-if [[ "$useGpu" = "Intel" ]]; then
-    commandToAddInSddm=$(echo "xrandr --setprovideroutputsource $xrandrIntelId $xrandrNvidiaId")
-elif [[ "$useGpu" = "Nvidia" ]]; then
-    commandToAddInSddm=$(echo "xrandr --setprovideroutputsource $xrandrNvidiaId $xrandrIntelId")
-fi
-    sed -i 's|.*xrandr *--setprovideroutputsource.*||g' /usr/share/sddm/scripts/Xsetup
-    echo "$commandToAddInSddm" >> /usr/share/sddm/scripts/Xsetup
+# Remove $1 if present. Exit 0 when it removed something.
+remove_if_present() {
+    [[ -e $1 ]] || return 1
+    rm -f "$1"
+    return 0
 }
 
-function installIntelXorgPkg {
-    if [[ -z "/var/lib/pacman/local/libva-intel-driver-*" ]]; then
-        pacman -Sy --noconfirm xf86-video-intel
-    fi
+write_nvidia_primary_xorg() {
+    write_if_changed "$NVIDIA_PRIMARY_CONF" <<'EOF'
+# Managed by biglinux-gpu-manager (mode: nvidia). Do not edit.
+Section "OutputClass"
+    Identifier "biglinux-nvidia-primary"
+    MatchDriver "nvidia-drm"
+    Driver "nvidia"
+    Option "AllowEmptyInitialConfiguration"
+    Option "PrimaryGPU" "yes"
+EndSection
+EOF
 }
 
-###################
-# INTEL AS PRIMARY
-###################
-
-# Intel Xorg as Primary + Nvidia ModeSetting - PAT
-if [[ $gpuIntel && $gpuNvidia && -z $biglinuxGpuMode || $gpuIntel && $gpuNvidia && "$1" = "mode-1" ]]; then
-    if ! lsmod | grep -q nvidia_drm; then
-        autoInstallDriver
-    fi
-    installIntelXorgPkg
-    removeModesetGrub
-    addBlacklistNouveauGrub
-    useIntelDriverInXorgForIntel
-    enableSwitcheroo
-    useGpu=Intel addInSddm
-    if $updateGrub; then
-        update-grub
-    fi
-    initcpioEnableModesetNvidia
-    initcpioRemovePageAttributeTable
-    mkinitcpio -P
-    echo 1 > /etc/biglinux-gpu-mode
-
-# Intel Xorg as Primary + Nvidia ModeSetting + PAT
-elif [[ $gpuIntel && $gpuNvidia && "$1" = "mode-2" ]]; then
-    if ! lsmod | grep -q nvidia_drm; then
-        autoInstallDriver
-    fi
-    installIntelXorgPkg
-    removeModesetGrub
-    addBlacklistNouveauGrub
-    useIntelDriverInXorgForIntel
-    enableSwitcheroo
-    useGpu=Intel addInSddm
-    if $updateGrub; then
-        update-grub
-    fi
-    initcpioEnableModesetNvidia
-    initcpioEnablePageAttributeTable
-    mkinitcpio -P
-    echo 2 > /etc/biglinux-gpu-mode
-
-# Intel ModeSetting as Primary + Nvidia ModeSetting - PAT
-elif [[ $gpuIntel && $gpuNvidia && "$1" = "mode-3" ]]; then
-    if ! lsmod | grep -q nvidia_drm; then
-        autoInstallDriver
-    fi
-    removeModesetGrub
-    addBlacklistNouveauGrub
-    useModesettingDriverInXorgForIntel
-    enableSwitcheroo
-    useGpu=Intel addInSddm
-    if $updateGrub; then
-        update-grub
-    fi
-    initcpioEnableModesetNvidia
-    initcpioRemovePageAttributeTable
-    mkinitcpio -P
-    echo 3 > /etc/biglinux-gpu-mode
-
-# Intel ModeSetting as Primary + Nvidia ModeSetting + PAT
-elif [[ $gpuIntel && $gpuNvidia && "$1" = "mode-4" ]]; then
-    if ! lsmod | grep -q nvidia_drm; then
-        autoInstallDriver
-    fi
-    removeModesetGrub
-    addBlacklistNouveauGrub
-    useModesettingDriverInXorgForIntel
-    enableSwitcheroo
-    useGpu=Intel addInSddm
-    if $updateGrub; then
-        update-grub
-    fi
-    initcpioEnableModesetNvidia
-    initcpioEnablePageAttributeTable
-    mkinitcpio -P
-    echo 4 > /etc/biglinux-gpu-mode
-
-# Intel ModeSetting as Primary + Nvidia Xorg - PAT
-elif [[ $gpuIntel && $gpuNvidia && "$1" = "mode-5" ]]; then
-    if ! lsmod | grep -q nvidia_drm; then
-        autoInstallDriver
-    fi
-    removeModesetGrub
-    addBlacklistNouveauGrub
-    useModesettingDriverInXorgForIntel
-    enableSwitcheroo
-    useGpu=Intel addInSddm
-    if $updateGrub; then
-        update-grub
-    fi
-    initcpioDisableModesetNvidia
-    initcpioRemovePageAttributeTable
-    mkinitcpio -P
-    echo 5 > /etc/biglinux-gpu-mode
-
-# Intel ModeSetting as Primary + Nvidia Xorg + PAT
-elif [[ $gpuIntel && $gpuNvidia && "$1" = "mode-6" ]]; then
-    if ! lsmod | grep -q nvidia_drm; then
-        autoInstallDriver
-    fi
-    removeModesetGrub
-    addBlacklistNouveauGrub
-    useModesettingDriverInXorgForIntel
-    enableSwitcheroo
-    useGpu=Intel addInSddm
-    if $updateGrub; then
-        update-grub
-    fi
-    initcpioDisableModesetNvidia
-    initcpioEnablePageAttributeTable
-    mkinitcpio -P
-    echo 6 > /etc/biglinux-gpu-mode
-
-# Intel Xorg as Primary + Nvidia Xorg - PAT
-elif [[ $gpuIntel && $gpuNvidia && "$1" = "mode-7" ]]; then
-    if ! lsmod | grep -q nvidia_drm; then
-        autoInstallDriver
-    fi
-    removeModesetGrub
-    addBlacklistNouveauGrub
-    installIntelXorgPkg
-    useIntelDriverInXorgForIntel
-    enableSwitcheroo
-    useGpu=Intel addInSddm
-    if $updateGrub; then
-        update-grub
-    fi
-    initcpioDisableModesetNvidia
-    initcpioRemovePageAttributeTable
-    mkinitcpio -P
-    echo 7 > /etc/biglinux-gpu-mode
-
-# Intel Xorg as Primary + Nvidia Xorg + PAT
-elif [[ $gpuIntel && $gpuNvidia && "$1" = "mode-8" ]]; then
-    if ! lsmod | grep -q nvidia_drm; then
-        autoInstallDriver
-    fi
-    removeModesetGrub
-    addBlacklistNouveauGrub
-    installIntelXorgPkg
-    useIntelDriverInXorgForIntel
-    enableSwitcheroo
-    useGpu=Intel addInSddm
-    if $updateGrub; then
-        update-grub
-    fi
-    initcpioDisableModesetNvidia
-    initcpioEnablePageAttributeTable
-    mkinitcpio -P
-    echo 8 > /etc/biglinux-gpu-mode
-
-
-###################
-# NVIDIA AS PRIMARY
-###################
-    
-# Nvidia ModeSetting - PAT as Primary + Intel Xorg
-elif [[ $gpuIntel && $gpuNvidia && "$1" = "mode-9" ]]; then
-    if ! lsmod | grep -q nvidia_drm; then
-        autoInstallDriver
-    fi
-    installIntelXorgPkg
-    removeModesetGrub
-    addBlacklistNouveauGrub
-    useIntelDriverInXorgForIntel
-    enableSwitcheroo
-    useGpu=Nvidia addInSddm
-    if $updateGrub; then
-        update-grub
-    fi
-    initcpioEnableModesetNvidia
-    initcpioRemovePageAttributeTable
-    mkinitcpio -P
-    echo 9 > /etc/biglinux-gpu-mode
-
-# Nvidia ModeSetting + PAT as Primary + Intel Xorg
-elif [[ $gpuIntel && $gpuNvidia && "$1" = "mode-10" ]]; then
-    if ! lsmod | grep -q nvidia_drm; then
-        autoInstallDriver
-    fi
-    installIntelXorgPkg
-    removeModesetGrub
-    addBlacklistNouveauGrub
-    useIntelDriverInXorgForIntel
-    enableSwitcheroo
-    useGpu=Nvidia addInSddm
-    if $updateGrub; then
-        update-grub
-    fi
-    initcpioEnableModesetNvidia
-    initcpioEnablePageAttributeTable
-    mkinitcpio -P
-    echo 10 > /etc/biglinux-gpu-mode
-
-# Nvidia ModeSetting - PAT as Primary + Intel ModeSetting
-elif [[ $gpuIntel && $gpuNvidia && "$1" = "mode-11" ]]; then
-    if ! lsmod | grep -q nvidia_drm; then
-        autoInstallDriver
-    fi
-    removeModesetGrub
-    addBlacklistNouveauGrub
-    useModesettingDriverInXorgForIntel
-    enableSwitcheroo
-    useGpu=Nvidia addInSddm
-    if $updateGrub; then
-        update-grub
-    fi
-    initcpioEnableModesetNvidia
-    initcpioRemovePageAttributeTable
-    mkinitcpio -P
-    echo 11 > /etc/biglinux-gpu-mode
-
-# Nvidia ModeSetting  + PAT as Primary + Intel ModeSetting
-elif [[ $gpuIntel && $gpuNvidia && "$1" = "mode-12" ]]; then
-    if ! lsmod | grep -q nvidia_drm; then
-        autoInstallDriver
-    fi
-    removeModesetGrub
-    addBlacklistNouveauGrub
-    useModesettingDriverInXorgForIntel
-    enableSwitcheroo
-    useGpu=Nvidia addInSddm
-    if $updateGrub; then
-        update-grub
-    fi
-    initcpioEnableModesetNvidia
-    initcpioEnablePageAttributeTable
-    mkinitcpio -P
-    echo 12 > /etc/biglinux-gpu-mode
-
-# Nvidia Xorg - PAT as Primary + Intel ModeSetting
-elif [[ $gpuIntel && $gpuNvidia && "$1" = "mode-13" ]]; then
-    if ! lsmod | grep -q nvidia_drm; then
-        autoInstallDriver
-    fi
-    removeModesetGrub
-    addBlacklistNouveauGrub
-    useModesettingDriverInXorgForIntel
-    enableSwitcheroo
-    useGpu=Nvidia addInSddm
-    if $updateGrub; then
-        update-grub
-    fi
-    initcpioDisableModesetNvidia
-    initcpioRemovePageAttributeTable
-    mkinitcpio -P
-    echo 13 > /etc/biglinux-gpu-mode
-
-# Nvidia Xorg + PAT as Primary + Intel ModeSetting
-elif [[ $gpuIntel && $gpuNvidia && "$1" = "mode-14" ]]; then
-    if ! lsmod | grep -q nvidia_drm; then
-        autoInstallDriver
-    fi
-    removeModesetGrub
-    addBlacklistNouveauGrub
-    useModesettingDriverInXorgForIntel
-    enableSwitcheroo
-    useGpu=Nvidia addInSddm
-    if $updateGrub; then
-        update-grub
-    fi
-    initcpioDisableModesetNvidia
-    initcpioEnablePageAttributeTable
-    mkinitcpio -P
-    echo 14 > /etc/biglinux-gpu-mode
-
-# Nvidia Xorg - PAT as Primary + Intel Xorg
-elif [[ $gpuIntel && $gpuNvidia && "$1" = "mode-15" ]]; then
-    if ! lsmod | grep -q nvidia_drm; then
-        autoInstallDriver
-    fi
-    removeModesetGrub
-    addBlacklistNouveauGrub
-    installIntelXorgPkg
-    useIntelDriverInXorgForIntel
-    enableSwitcheroo
-    useGpu=Nvidia addInSddm
-    if $updateGrub; then
-        update-grub
-    fi
-    initcpioDisableModesetNvidia
-    initcpioRemovePageAttributeTable
-    mkinitcpio -P
-    echo 15 > /etc/biglinux-gpu-mode
-
-# Nvidia Xorg + PAT as Primary + Intel Xorg
-elif [[ $gpuIntel && $gpuNvidia && "$1" = "mode-16" ]]; then
-    if ! lsmod | grep -q nvidia_drm; then
-        autoInstallDriver
-    fi
-    removeModesetGrub
-    addBlacklistNouveauGrub
-    installIntelXorgPkg
-    useIntelDriverInXorgForIntel
-    enableSwitcheroo
-    useGpu=Nvidia addInSddm
-    if $updateGrub; then
-        update-grub
-    fi
-    initcpioDisableModesetNvidia
-    initcpioEnablePageAttributeTable
-    mkinitcpio -P
-    echo 16 > /etc/biglinux-gpu-mode
+# --- mode resolution ----------------------------------------------------------
+mode="${1:-}"
+if [[ -z $mode ]]; then
+    [[ -r $MODE_FILE ]] && mode="$(<"$MODE_FILE")"
+    mode="${mode:-hybrid}"
 fi
 
+case "$mode" in
+hybrid)
+    # Drop all overrides; the mhwd PRIME profile provides the hybrid baseline
+    # (RTD3 0x02, offload Xorg, force-loaded nvidia-drm).
+    remove_if_present "$NVIDIA_MODE_CONF" && need_initramfs=true
+    remove_if_present "$NVIDIA_PRIMARY_CONF"
+    enable_switcheroo
+    ;;
+nvidia)
+    # Override mhwd's RTD3 0x02 with 0x00 (zz-* wins the merge) and make the
+    # dGPU the Xorg primary.
+    write_if_changed "$NVIDIA_MODE_CONF" <<'EOF' && need_initramfs=true
+# Managed by biglinux-gpu-manager (mode: nvidia). Do not edit.
+options nvidia NVreg_DynamicPowerManagement=0x00
+EOF
+    write_nvidia_primary_xorg
+    enable_switcheroo
+    ;;
+integrated)
+    if [[ $has_igpu != true ]]; then
+        echo 'biglinux-gpu-manager: integrated mode needs an integrated GPU; aborting.' >&2
+        exit 1
+    fi
+    # blacklist stops autoload; install /bin/false also defeats the explicit
+    # nvidia-drm force-load from mhwd's /etc/modules-load.d/mhwd-gpu.conf.
+    write_if_changed "$NVIDIA_MODE_CONF" <<'EOF' && need_initramfs=true
+# Managed by biglinux-gpu-manager (mode: integrated). Do not edit.
+blacklist nvidia
+blacklist nvidia_drm
+blacklist nvidia_modeset
+blacklist nvidia_uvm
+install nvidia /bin/false
+install nvidia_drm /bin/false
+install nvidia_modeset /bin/false
+install nvidia_uvm /bin/false
+EOF
+    remove_if_present "$NVIDIA_PRIMARY_CONF"
+    ;;
+*)
+    echo "Usage: ${0##*/} [hybrid|nvidia|integrated]" >&2
+    exit 2
+    ;;
+esac
 
+echo "$mode" >"$MODE_FILE"
 
-if [[ $gpuIntel && $gpuNvidia && "$1" = "update-1" ]]; then
-    useIntelDriverInXorgForIntel
+# Rebuild the initramfs only when the modprobe state actually changed.
+if [[ $need_initramfs == true ]]; then
+    mkinitcpio -P
 fi
 
-
-# if [[ $gpuIntel && $gpuAmd ]]; then
-#     
-# fi
+echo "biglinux-gpu-manager: applied mode '$mode'."

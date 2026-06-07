@@ -1,61 +1,41 @@
 #!/usr/bin/env bash
+#
+# mhwd-verify-hybrid-boot — detect a hybrid GPU at boot and apply the matching
+# biglinux-gpu-manager mode. Run by nvidia-manager-verify.service before the
+# display manager. The live-CD GRUB may request a mode via bignvidia= on the
+# kernel cmdline (see iso-profiles .../grub/cfg/kernels.cfg).
 
 #-------------------------------------------------------------------------------
-# Fix video device permission in live mode, added in 2026/01/28 to fix nvidia proprietary driver
+# Fix video device permission in live mode, added 2026/01/28 to fix the nvidia
+# proprietary driver in the live ISO.
 #-------------------------------------------------------------------------------
-if [ -e "/livefs-pkgs.txt" ]; then
-	sudo chmod 666 /dev/dri/renderD*
+if [[ -e /livefs-pkgs.txt ]]; then
+    chmod 666 /dev/dri/renderD* 2>/dev/null
 fi
 
-# verify if switcheroo is enabled
-if ! systemctl -q is-enabled switcheroo-control; then
-	vgaList=$(lspci | grep -iE "VGA|3D|Display")
-	if [[ $(echo $vgaList | grep -i nvidia) ]] && [[ $(echo "$vgaList" | wc -l) > 1 ]]; then
-		if grep 'bignvidia=1' /proc/cmdline; then
-			biglinux-gpu-manager mode-1
-		elif  grep 'bignvidia=2' /proc/cmdline; then
-			biglinux-gpu-manager mode-2
-		elif  grep 'bignvidia=3' /proc/cmdline; then
-			biglinux-gpu-manager mode-3
-		elif  grep 'bignvidia=4' /proc/cmdline; then
-			biglinux-gpu-manager mode-4
-		elif  grep 'bignvidia=5' /proc/cmdline; then
-			biglinux-gpu-manager mode-5
-		elif  grep 'bignvidia=6' /proc/cmdline; then
-			biglinux-gpu-manager mode-6
-		elif  grep 'bignvidia=7' /proc/cmdline; then
-			biglinux-gpu-manager mode-7
-		elif  grep 'bignvidia=8' /proc/cmdline; then
-			biglinux-gpu-manager mode-8
-		elif  grep 'bignvidia=9' /proc/cmdline; then
-			biglinux-gpu-manager mode-9
-		elif  grep 'bignvidia=10' /proc/cmdline; then
-			biglinux-gpu-manager mode-10
-		elif  grep 'bignvidia=11' /proc/cmdline; then
-			biglinux-gpu-manager mode-11
-		elif  grep 'bignvidia=12' /proc/cmdline; then
-			biglinux-gpu-manager mode-12
-		elif  grep 'bignvidia=13' /proc/cmdline; then
-			biglinux-gpu-manager mode-13
-		elif  grep 'bignvidia=14' /proc/cmdline; then
-			biglinux-gpu-manager mode-14
-		elif  grep 'bignvidia=15' /proc/cmdline; then
-			biglinux-gpu-manager mode-15
-		elif  grep 'bignvidia=16' /proc/cmdline; then
-			biglinux-gpu-manager mode-16
-		else
-			biglinux-gpu-manager
-		fi
+# Already configured → nothing to do. A persisted mode (set by a previous
+# run on an installed system, including a user-chosen 'integrated') is the
+# authoritative signal; switcheroo-control being enabled covers the AMD-hybrid
+# case where no mode file is written. Honouring the mode file keeps the user's
+# choice sticky across reboots instead of silently reverting to hybrid.
+if [[ -s /etc/biglinux-gpu-mode ]] || systemctl -q is-enabled switcheroo-control 2>/dev/null; then
+    exit 0
+fi
 
-	systemctl enable --now switcheroo-control
-	echo '<device screen="0" driver="dri2">
-	<application name="Default">
-		<option name="vblank_mode" value="0"/>
-	</application>
-	</device>' > /etc/drirc
-	
-# 	elif grep -Eiq '(VGA|3d).*(radeon|amd|ati)' <(lspci); then
-	elif [[ $(echo $vgaList | grep -Ei '(VGA|3D|Display).*(radeon|amd|ati)') ]] && [[ $(echo "$vgaList" | wc -l) > 1 ]]; then
-		systemctl enable --now switcheroo-control
-	fi
+# A hybrid system exposes more than one graphics controller.
+gpu_list="$(lspci | grep -iE 'VGA|3D|Display')"
+gpu_count="$(grep -c . <<<"$gpu_list")"
+((gpu_count > 1)) || exit 0
+
+if grep -qi nvidia <<<"$gpu_list"; then
+    # NVIDIA hybrid: honour the mode requested on the cmdline, else hybrid.
+    # biglinux-gpu-manager enables switcheroo-control for hybrid/nvidia.
+    case " $(cat /proc/cmdline) " in
+    *" bignvidia=nvidia "*) biglinux-gpu-manager nvidia ;;
+    *" bignvidia=integrated "*) biglinux-gpu-manager integrated ;;
+    *) biglinux-gpu-manager hybrid ;;
+    esac
+elif grep -qiE 'radeon|amd|ati' <<<"$gpu_list"; then
+    # AMD hybrid (AMD APU + AMD dGPU): just expose switcheroo-control.
+    systemctl enable --now switcheroo-control
 fi

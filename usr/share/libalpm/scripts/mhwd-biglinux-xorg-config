@@ -23,11 +23,13 @@
 #  (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
 #  THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-
+# Re-apply the persisted GPU mode after mhwd rewrites its Xorg outputclass,
+# so the biglinux-owned drop-ins stay consistent. Mode is a name now
+# (hybrid|nvidia|integrated); biglinux-gpu-manager is idempotent.
 if [[ -e /etc/biglinux-gpu-mode ]]; then
-    biglinuxGpuMode=$(< /etc/biglinux-gpu-mode)
+    biglinuxGpuMode=$(</etc/biglinux-gpu-mode)
 
-    if [[ "$biglinuxGpuMode" != "" ]]; then
-        biglinux-gpu-manager "update-$biglinuxGpuMode"
+    if [[ -n "$biglinuxGpuMode" ]]; then
+        biglinux-gpu-manager "$biglinuxGpuMode"
     fi
 fi

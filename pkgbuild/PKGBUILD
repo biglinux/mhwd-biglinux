@@ -7,10 +7,9 @@ pkgdesc="Add suport to linux-xanmod and better hybrid gpu"
 arch=('any')
 url="https://github.com/biglinux/$pkgname"
 license=('GPL3')
-depends=('mhwd' 'mhwd-nvidia-580xx')
+depends=('mhwd' 'mhwd-nvidia-580xx' 'switcheroo-control')
 provides=("$pkgname")
-optdepends=('switcheroo-control')
-#conflicts=('optimus-manager' 'optimus-manager-plasma' 'optimus-manager-qt')
+optdepends=('nvidia-prime: prime-run wrapper for PRIME render offload')
 source=("git+${url}.git")
 md5sums=('SKIP')
 if [ -e "${pkgname}.install" ];then
