@@ -2,7 +2,7 @@
 #
 # biglinux-gpu-manager — slim hybrid-GPU mode switcher for BigLinux
 #
-# Usage: biglinux-gpu-manager [hybrid|nvidia|integrated]
+# Usage: biglinux-gpu-manager [hybrid|nvidia|integrated|status]
 #
 # This is a THIN override layer on top of the mhwd PRIME profile
 # (video-hybrid-*-nvidia-prime). That profile already ships the complete,
@@ -44,6 +44,30 @@ grep -qiE 'NVIDIA' <<<"$gpu_list" && has_nvidia=true
 
 has_igpu=false
 grep -qiE 'Intel|AMD|ATI' <<<"$gpu_list" && has_igpu=true
+
+# --- status (read-only; works regardless of which GPUs are present) -----------
+if [[ "${1:-}" == "status" ]]; then
+    mode='unknown'
+    [[ -r $MODE_FILE ]] && mode="$(tr -d '[:space:]' <"$MODE_FILE")"
+    # Allowlist: the mode file is admin-writable, so reject anything unexpected
+    # (keeps the JSON output well-formed and the GUI robust).
+    case "$mode" in
+    hybrid | nvidia | integrated) ;;
+    *) mode='unknown' ;;
+    esac
+    hybrid=false
+    [[ $has_nvidia == true && $has_igpu == true ]] && hybrid=true
+    switcheroo=disabled
+    systemctl -q is-enabled switcheroo-control 2>/dev/null && switcheroo=enabled
+    if [[ "${2:-}" == "--json" ]]; then
+        printf '{"mode":"%s","has_nvidia":%s,"has_igpu":%s,"hybrid":%s,"switcheroo":"%s"}\n' \
+            "$mode" "$has_nvidia" "$has_igpu" "$hybrid" "$switcheroo"
+    else
+        printf 'mode=%s\nhas_nvidia=%s\nhas_igpu=%s\nhybrid=%s\nswitcheroo=%s\n' \
+            "$mode" "$has_nvidia" "$has_igpu" "$hybrid" "$switcheroo"
+    fi
+    exit 0
+fi
 
 # No NVIDIA dGPU: nothing for this tool to manage.
 if [[ $has_nvidia != true ]]; then
@@ -140,7 +164,7 @@ EOF
     remove_if_present "$NVIDIA_PRIMARY_CONF"
     ;;
 *)
-    echo "Usage: ${0##*/} [hybrid|nvidia|integrated]" >&2
+    echo "Usage: ${0##*/} [hybrid|nvidia|integrated|status]" >&2
     exit 2
     ;;
 esac

@@ -6,7 +6,7 @@ After=mhwd-live.service
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-ExecStart=mhwd-verify-hybrid-boot
+ExecStart=/usr/bin/mhwd-verify-hybrid-boot
 
 [Install]
 WantedBy=graphical.target

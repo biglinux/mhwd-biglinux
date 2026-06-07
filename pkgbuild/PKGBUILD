@@ -3,10 +3,10 @@
 pkgname=mhwd-biglinux
 pkgver=$(date +%y.%m.%d)
 pkgrel=$(date +%H%M)
-pkgdesc="Add suport to linux-xanmod and better hybrid gpu"
+pkgdesc="Support for linux-xanmod and improved hybrid GPU handling"
 arch=('any')
 url="https://github.com/biglinux/$pkgname"
-license=('GPL3')
+license=('GPL-3.0-or-later')
 depends=('mhwd' 'mhwd-nvidia-580xx' 'switcheroo-control')
 provides=("$pkgname")
 optdepends=('nvidia-prime: prime-run wrapper for PRIME render offload')
