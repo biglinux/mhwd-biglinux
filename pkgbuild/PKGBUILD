@@ -10,7 +10,9 @@ license=('GPL-3.0-or-later')
 depends=('mhwd' 'mhwd-nvidia-580xx' 'switcheroo-control')
 provides=("$pkgname")
 optdepends=('nvidia-prime: prime-run wrapper for PRIME render offload')
-source=("git+${url}.git")
+# Build from local committed code. For a remote/CI build, swap to the line below.
+#source=("git+${url}.git")
+source=("git+file://${PWD%/*}")
 md5sums=('SKIP')
 if [ -e "${pkgname}.install" ];then
     install=${pkgname}.install
