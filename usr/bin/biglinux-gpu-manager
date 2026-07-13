@@ -171,9 +171,16 @@ esac
 
 echo "$mode" >"$MODE_FILE"
 
-# Rebuild the initramfs only when the modprobe state actually changed.
+# Rebuild the initramfs only when the modprobe state actually changed. The
+# live ISO already booted its immutable initramfs; rebuilding it in the overlay
+# is ineffective, slow and may fail because /boot belongs to the ISO image.
 if [[ $need_initramfs == true ]]; then
-    mkinitcpio -P
+    if [[ -e /livefs-pkgs.txt ]]; then
+        echo 'biglinux-gpu-manager: live session; initramfs rebuild skipped.'
+    elif ! mkinitcpio -P; then
+        echo 'biglinux-gpu-manager: failed to rebuild initramfs.' >&2
+        exit 1
+    fi
 fi
 
 echo "biglinux-gpu-manager: applied mode '$mode'."

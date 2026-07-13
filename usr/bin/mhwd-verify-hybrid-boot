@@ -3,39 +3,50 @@
 # mhwd-verify-hybrid-boot — detect a hybrid GPU at boot and apply the matching
 # biglinux-gpu-manager mode. Run by nvidia-manager-verify.service before the
 # display manager. The live-CD GRUB may request a mode via bignvidia= on the
-# kernel cmdline (see iso-profiles .../grub/cfg/kernels.cfg).
+# kernel command line.
 
-#-------------------------------------------------------------------------------
-# Fix video device permission in live mode, added 2026/01/28 to fix the nvidia
-# proprietary driver in the live ISO.
-#-------------------------------------------------------------------------------
-if [[ -e /livefs-pkgs.txt ]]; then
+set -uo pipefail
+
+readonly MODE_FILE='/etc/biglinux-gpu-mode'
+is_live=false
+[[ -e /livefs-pkgs.txt ]] && is_live=true
+
+# Keep the current live-media workaround. A udev rule and correct group
+# membership would be preferable to world-writable render nodes in the future.
+if [[ $is_live == true ]]; then
     chmod 666 /dev/dri/renderD* 2>/dev/null
 fi
 
-# Already configured → nothing to do. A persisted mode (set by a previous
-# run on an installed system, including a user-chosen 'integrated') is the
-# authoritative signal; switcheroo-control being enabled covers the AMD-hybrid
-# case where no mode file is written. Honouring the mode file keeps the user's
-# choice sticky across reboots instead of silently reverting to hybrid.
-if [[ -s /etc/biglinux-gpu-mode ]] || systemctl -q is-enabled switcheroo-control 2>/dev/null; then
+# Read a one-time live-boot request. The named values are current. Numeric
+# values are accepted only as compatibility with older BigLinux live media:
+# 1-8 used an integrated/iGPU primary; 9-16 used NVIDIA as primary.
+requested_mode=''
+for arg in $(</proc/cmdline); do
+    case "$arg" in
+    bignvidia=hybrid) requested_mode='hybrid' ;;
+    bignvidia=nvidia) requested_mode='nvidia' ;;
+    bignvidia=integrated) requested_mode='integrated' ;;
+    bignvidia=[1-8]) requested_mode='hybrid' ;;
+    bignvidia=9 | bignvidia=1[0-6]) requested_mode='nvidia' ;;
+    esac
+done
+
+# On an installed system, a persisted user selection remains authoritative.
+# A live session is stateless, so an image-build leftover must not suppress the
+# current boot request or the automatic hybrid default.
+if [[ $is_live != true && -s $MODE_FILE ]]; then
     exit 0
 fi
 
 # A hybrid system exposes more than one graphics controller.
-gpu_list="$(lspci | grep -iE 'VGA|3D|Display')"
+gpu_list="$(lspci 2>/dev/null | grep -iE 'VGA|3D|Display')"
 gpu_count="$(grep -c . <<<"$gpu_list")"
 ((gpu_count > 1)) || exit 0
 
 if grep -qi nvidia <<<"$gpu_list"; then
-    # NVIDIA hybrid: honour the mode requested on the cmdline, else hybrid.
-    # biglinux-gpu-manager enables switcheroo-control for hybrid/nvidia.
-    case " $(cat /proc/cmdline) " in
-    *" bignvidia=nvidia "*) biglinux-gpu-manager nvidia ;;
-    *" bignvidia=integrated "*) biglinux-gpu-manager integrated ;;
-    *) biglinux-gpu-manager hybrid ;;
-    esac
+    # No parameter means the modern PRIME/RTD3 hybrid baseline.
+    biglinux-gpu-manager "${requested_mode:-hybrid}"
 elif grep -qiE 'radeon|amd|ati' <<<"$gpu_list"; then
-    # AMD hybrid (AMD APU + AMD dGPU): just expose switcheroo-control.
+    # AMD hybrid (AMD APU + AMD dGPU): expose switcheroo-control.
     systemctl enable --now switcheroo-control
 fi
