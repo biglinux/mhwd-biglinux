@@ -1,38 +1,50 @@
 # Maintainer: Barnabé di Kartola <barnabedikartola@gmail.com>
 
 pkgname=mhwd-biglinux
+pkgdesc="Support for linux-xanmod and linux-big, and improved hybrid GPU handling"
+depends=('mhwd' 'mhwd-nvidia-580xx' 'switcheroo-control')
+optdepends=('nvidia-prime: prime-run wrapper for PRIME render offload')
+provides=("$pkgname")
 pkgver=$(date +%y.%m.%d)
 pkgrel=$(date +%H%M)
-pkgdesc="Support for linux-xanmod and linux-big, and improved hybrid GPU handling"
 arch=('any')
-url="https://github.com/biglinux/$pkgname"
 license=('GPL-3.0-or-later')
-depends=('mhwd' 'mhwd-nvidia-580xx' 'switcheroo-control')
-provides=("$pkgname")
-optdepends=('nvidia-prime: prime-run wrapper for PRIME render offload')
-# Build from local committed code. For a remote/CI build, swap to the line below.
-#source=("git+${url}.git")
-source=("git+file://${PWD%/*}")
+url="https://github.com/biglinux/${pkgname}"
+source=("git+${url}.git")
 md5sums=('SKIP')
-if [ -e "${pkgname}.install" ];then
+
+# Automatically detect and use the correct install file
+if [ -e "${pkgname}.install" ]; then
     install=${pkgname}.install
+elif [ -e "pkgbuild.install" ]; then
+    install=pkgbuild.install
 fi
 
-
 package() {
+    cd "${srcdir}/${pkgname}"
 
-    InternalDir="${srcdir}/${pkgname}"
-
-    # Copy files
-    if [ -d "${InternalDir}/usr" ]; then
-        cp -r "${InternalDir}/usr" "${pkgdir}/"
+    # Determine the correct source directory
+    if [ -d "${pkgname}" ]; then
+        srcdir="${srcdir}/${pkgname}/${pkgname}"
+    else
+        srcdir="${srcdir}/${pkgname}"
     fi
 
-    if [ -d "${InternalDir}/etc" ]; then
-        cp -r "${InternalDir}/etc" "${pkgdir}/"
+    # Install files
+    local dirs=("usr" "etc" "opt")
+    for dir in "${dirs[@]}"; do
+        if [ -d "${srcdir}/${dir}" ]; then
+            cp -a "${srcdir}/${dir}" "${pkgdir}/"
+        fi
+    done
+
+    # Install license file if present
+    if [ -f "LICENSE" ]; then
+        install -Dm644 LICENSE "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
     fi
 
-    if [ -d "${InternalDir}/opt" ]; then
-        cp -r "${InternalDir}/opt" "${pkgdir}/"
+    # Install documentation if present
+    if [ -f "README.md" ]; then
+        install -Dm644 README.md "${pkgdir}/usr/share/doc/${pkgname}/README.md"
     fi
 }
