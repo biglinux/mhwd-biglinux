@@ -1,4 +1,5 @@
 # Maintainer: Barnabé di Kartola <barnabedikartola@gmail.com>
+# Maintainer: Tales A. Mendonça <talesam@gmail.com>
 
 pkgname=mhwd-biglinux
 pkgdesc="Support for linux-xanmod and linux-big, and improved hybrid GPU handling"
