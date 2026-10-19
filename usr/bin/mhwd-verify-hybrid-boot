@@ -38,15 +38,16 @@ if [[ $is_live != true && -s $MODE_FILE ]]; then
     exit 0
 fi
 
-# A hybrid system exposes more than one graphics controller.
-gpu_list="$(lspci 2>/dev/null | grep -iE 'VGA|3D|Display')"
+# A hybrid system exposes more than one display controller (PCI class 03xx).
+# Vendors are matched by ID: 10de = NVIDIA, 1002 = AMD/ATI.
+gpu_list="$(lspci -nn 2>/dev/null | grep -E '\[03[0-9a-f]{2}\]')"
 gpu_count="$(grep -c . <<<"$gpu_list")"
 ((gpu_count > 1)) || exit 0
 
-if grep -qi nvidia <<<"$gpu_list"; then
+if grep -q '\[10de:' <<<"$gpu_list"; then
     # No parameter means the modern PRIME/RTD3 hybrid baseline.
     biglinux-gpu-manager "${requested_mode:-hybrid}"
-elif grep -qiE 'radeon|amd|ati' <<<"$gpu_list"; then
+elif grep -q '\[1002:' <<<"$gpu_list"; then
     # AMD hybrid (AMD APU + AMD dGPU): expose switcheroo-control.
     systemctl enable --now switcheroo-control
 fi

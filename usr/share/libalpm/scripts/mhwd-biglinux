@@ -1,4 +1,6 @@
 #!/bin/bash
+# The sed scripts below write a literal $ into other scripts.
+# shellcheck disable=SC2016
 
 #  2023-2023, Rafael Ruscher <rruscher@gmail.com>
 #  2023-2023, Bruno Gonçalves <www.biglinux.com.br>
@@ -24,49 +26,47 @@
 #  THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # nvidia 580xx profiles: mhwd-db now ships these natively. Until that landed we
-# synthesised them from 575xx as *-big copies. Clean those stale copies up when
-# the native profiles exist; only synthesise on an older mhwd-db that lacks them.
+# synthesised them from 575xx as *-big copies; remove those stale copies.
 gpudb='/var/lib/mhwd/db/pci/graphic_drivers'
 if [[ -e "$gpudb/nvidia-580xx" ]]; then
     rm -Rf "$gpudb/nvidia-580xx-big" \
         "$gpudb/hybrid-amd-nvidia-580xx-prime-big" \
         "$gpudb/hybrid-intel-nvidia-580xx-prime-big"
-elif [[ ! -e "$gpudb/nvidia-580xx-big" ]]; then
-    cp -R "$gpudb/nvidia-575xx" "$gpudb/nvidia-580xx-big"
-    cp -R "$gpudb/hybrid-amd-nvidia-575xx-prime" "$gpudb/hybrid-amd-nvidia-580xx-prime-big"
-    cp -R "$gpudb/hybrid-intel-nvidia-575xx-prime" "$gpudb/hybrid-intel-nvidia-580xx-prime-big"
-
-    sed -i 's|575|580|g' "$gpudb/nvidia-580xx-big/MHWDCONFIG" \
-        "$gpudb/hybrid-amd-nvidia-580xx-prime-big/MHWDCONFIG" \
-        "$gpudb/hybrid-intel-nvidia-580xx-prime-big/MHWDCONFIG"
 fi
 
-# Add xanmod in mhwd-kernel
-if ! grep -q linux-xanmod /usr/bin/mhwd-kernel; then
-    sed -i 's/\^linux\[0-9]\[0-9]?(\[0-9])\$/^linux[0-9][0-9]?([0-9])$|^linux-xanmod$|^linux-xanmod-lts$/g' /var/lib/mhwd/scripts/mhwd
-    sed -i 's/\^linux\[0-9]\[0-9]?(\[0-9])\$/^linux[0-9][0-9]?([0-9])$|^linux-xanmod$|^linux-xanmod-lts$/g' /usr/bin/mhwd-kernel
+# Kernels mhwd installs driver modules for: each one becomes <kernel>-<module>
+# (linux-big-nvidia-open, linux-xanmod-nvidia, ...). Upstream mhwd only knows
+# the Manjaro linuxNN kernels; add xanmod and the BigCommunity kernel, linux-big.
+# Each edit rewrites the whole expression, so it is idempotent and also repairs
+# a file an older version of this hook patched with a shorter list.
+kernel_regex='^linux[0-9][0-9]?([0-9])$|^linux-xanmod$|^linux-xanmod-lts$|^linux-big$'
 
-    sed -i 's/current="linux$major$minor"/if uname -r | grep xanmod.*lts >\/dev\/null; then current="linux-xanmod-lts"; elif uname -r | grep xanmod >\/dev\/null; then current="linux-xanmod";  else current="linux$major$minor"; fi/g' /usr/bin/mhwd-kernel
-fi
+sed -i -E 's#^KERNELS=\$\(pacman -Qqs "[^"]*"\)$#KERNELS=$(pacman -Qqs "'"$kernel_regex"'")#' \
+    /var/lib/mhwd/scripts/mhwd
 
-# Not try in in obsolete kernel
-sed -i 's#KERNELS=$(pacman -Qqs .*linux-xanmod-lts$")#KERNELS=$(pacman -Qqs "^linux[0-9][0-9]?([0-9])$|^linux-xanmod$|^linux-xanmod-lts$")#' /var/lib/mhwd/scripts/mhwd
-
-# Dont stop if fail to remove package ( Solve problem to install with conky package on iso )
-sed -i '360s/exit 1/exit 0/' /var/lib/mhwd/scripts/mhwd
+# mhwd-kernel: list the same kernels (not the -rt pattern) and recognise the
+# running one, which it refuses to remove.
+sed -i -E 's#"\^linux\[0-9\]\[0-9\]\?\(\[0-9\]\)\$(\|[^"]*)?"#"'"$kernel_regex"'"#g' \
+    /usr/bin/mhwd-kernel
+sed -i '/current="linux$major$minor"/c\
+case "$(uname -r)" in *xanmod*lts*) current="linux-xanmod-lts" ;; *xanmod*) current="linux-xanmod" ;; *-big) current="linux-big" ;; *) current="linux$major$minor" ;; esac' \
+    /usr/bin/mhwd-kernel
 
 # Folder with scripts
 cd /var/lib/mhwd/db/pci/graphic_drivers/ || exit 0
 
 # Folders with MHWDCONFIG to change
 Folders="hybrid-amd-nvidia-470xx-prime
+hybrid-amd-nvidia-580xx-prime
 hybrid-amd-nvidia-prime
 hybrid-intel-nvidia-470xx-prime
+hybrid-intel-nvidia-580xx-prime
 hybrid-intel-nvidia-prime"
 
 for folder in $Folders; do
+    [[ -f $folder/MHWDCONFIG ]] || continue
     # Add switcheroo-control to files
-    if ! grep -q 'switcheroo-control' $folder/MHWDCONFIG; then
-        sed -i 's|^DEPENDS="|DEPENDS="switcheroo-control |g' $folder/MHWDCONFIG
+    if ! grep -q 'switcheroo-control' "$folder/MHWDCONFIG"; then
+        sed -i 's|^DEPENDS="|DEPENDS="switcheroo-control |g' "$folder/MHWDCONFIG"
     fi
 done

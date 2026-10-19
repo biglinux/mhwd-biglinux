@@ -3,7 +3,7 @@
 pkgname=mhwd-biglinux
 pkgver=$(date +%y.%m.%d)
 pkgrel=$(date +%H%M)
-pkgdesc="Support for linux-xanmod and improved hybrid GPU handling"
+pkgdesc="Support for linux-xanmod and linux-big, and improved hybrid GPU handling"
 arch=('any')
 url="https://github.com/biglinux/$pkgname"
 license=('GPL-3.0-or-later')

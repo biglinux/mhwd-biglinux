@@ -37,13 +37,16 @@ readonly NVIDIA_MODE_CONF='/etc/modprobe.d/zz-biglinux-nvidia-mode.conf'
 readonly NVIDIA_PRIMARY_CONF='/etc/X11/xorg.conf.d/99-biglinux-nvidia-primary.conf'
 
 # --- hardware detection -------------------------------------------------------
-gpu_list="$(lspci 2>/dev/null | grep -iE 'VGA|3D|Display')"
+# Display controllers (PCI class 03xx), matched by vendor ID rather than by name:
+# "ATI" also matches "NVIDIA Corporation", which made a desktop with a single
+# NVIDIA card look hybrid. 10de = NVIDIA, 8086 = Intel, 1002 = AMD/ATI.
+gpu_list="$(lspci -nn 2>/dev/null | grep -E '\[03[0-9a-f]{2}\]')"
 
 has_nvidia=false
-grep -qiE 'NVIDIA' <<<"$gpu_list" && has_nvidia=true
+grep -q '\[10de:' <<<"$gpu_list" && has_nvidia=true
 
 has_igpu=false
-grep -qiE 'Intel|AMD|ATI' <<<"$gpu_list" && has_igpu=true
+grep -qE '\[(8086|1002):' <<<"$gpu_list" && has_igpu=true
 
 # --- status (read-only; works regardless of which GPUs are present) -----------
 if [[ "${1:-}" == "status" ]]; then
